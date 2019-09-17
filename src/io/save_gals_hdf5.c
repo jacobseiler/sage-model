@@ -296,7 +296,6 @@ int32_t initialize_hdf5_galaxy_files(const int filenr, struct save_info *save_in
             CHECK_STATUS_AND_RETURN_ON_FAIL(status, (int32_t) status,
                                             "Failed to close the dataspace for output snapshot number %d.\n", snap_idx);
 
-            //fprintf(stderr, "Created.\n");
         }
     }
 
@@ -433,20 +432,22 @@ int32_t finalize_hdf5_galaxy_files(const struct forest_info *forest_info, struct
         // We still have galaxies remaining in the buffer. Need to write them.
         int32_t num_gals_to_write = save_info->num_gals_in_buffer[snap_idx];
 
-        h5_status = trigger_buffer_write(snap_idx, num_gals_to_write,
-                                      save_info->tot_ngals[snap_idx], save_info);
-        if(h5_status != EXIT_SUCCESS) {
-            return h5_status;
+        if(num_gals_to_write > 0) {
+            h5_status = trigger_buffer_write(snap_idx, num_gals_to_write,
+                                             save_info->tot_ngals[snap_idx], save_info);
+            if(h5_status != EXIT_SUCCESS) {
+                return h5_status;
+            }
+            
+            // We're going to be a bit sneaky here so we don't need to pass the tree number to this function.
+            int32_t tree = save_info->buffer_output_gals[snap_idx].SAGETreeIndex[0];
+            if(tree < 0 || tree >= save_info->buffer_size) {
+                fprintf(stderr,"\nError: at snap_idx = %d -> got tree = %d. Expecting to get tree in the range [0, %d) num_gals_to_write = %d\n",
+                        snap_idx, tree, save_info->buffer_size, num_gals_to_write);
+                return EXIT_FAILURE;
+            }
+            save_info->forest_ngals[snap_idx][tree] += num_gals_to_write;
         }
-
-        // We're going to be a bit sneaky here so we don't need to pass the tree number to this function.
-        int32_t tree = save_info->buffer_output_gals[snap_idx].SAGETreeIndex[0];
-        if(tree < 0 || tree >= save_info->buffer_size) {
-            fprintf(stderr,"Error: at snap_idx = %d -> got tree = %d. Expecting to get tree in the range [0, %d)\n",
-                    snap_idx, tree, save_info->buffer_size);
-            return EXIT_FAILURE;
-        }
-        save_info->forest_ngals[snap_idx][tree] += num_gals_to_write;
 
         // Write attributes showing how many galaxies we wrote for this snapshot.
         CREATE_SINGLE_ATTRIBUTE(save_info->group_ids[snap_idx], "num_gals", &save_info->tot_ngals[snap_idx], H5T_NATIVE_INT);

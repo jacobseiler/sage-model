@@ -322,7 +322,7 @@ int64_t load_forest_hdf5(const int64_t forestnr, struct halo_data **halos, struc
 
     buffer = malloc(nhalos * NDIM * sizeof(double)); // The largest data-type will be double.
     if (buffer == NULL) {
-        fprintf(stderr, "Error: Could not allocate memory for %"PRId64" halos in the HDF5 buffer. Size requested = %zu bytes\n",
+        fprintf(stderr, "Error: Could not allocate memory for %"PRId64" halos in the HDF5 buffer. Size requested = %"PRIu64" bytes\n",
                 nhalos, nhalos * NDIM * sizeof(double)); 
         ABORT(MALLOC_FAILURE);
     }

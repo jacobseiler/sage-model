@@ -21,8 +21,10 @@ struct HDF5_GALAXY_OUTPUT
     
     long long   *GalaxyIndex;
     long long   *CentralGalaxyIndex;
-    int64_t   *SAGEHaloIndex;/* MS: is now 64-bit and different from sage_binary (which was 32-bit)*/
-    int64_t   *SAGETreeIndex;/* MS: is now 64-bit and different from sage_binary (which was 32-bit)*/
+
+    int32_t   *SAGEHaloIndex;
+    int32_t   *SAGETreeIndex;
+    
     long long   *SimulationHaloIndex;
     int64_t *TaskForestNr; /* MS: 17/9/2019 -- Tracks the cpu-local forest number */
 

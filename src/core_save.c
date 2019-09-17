@@ -66,7 +66,7 @@ int32_t initialize_galaxy_files(const int rank, const struct forest_info *forest
 
 
 // Write all the galaxy properties to file.
-int32_t save_galaxies(const int task_forestnr, const int numgals, struct halo_data *halos,
+int32_t save_galaxies(const int64_t task_forestnr, const int numgals, struct halo_data *halos,
                       struct forest_info *forest_info,
                       struct halo_aux_data *haloaux, struct GALAXY *halogal,
                       struct save_info *save_info, const struct params *run_params)

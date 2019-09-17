@@ -133,7 +133,7 @@ void cleanup_forests_io(enum Valid_TreeTypes TreeType, struct forest_info *fores
     return;
 }
 
-int64_t load_forest(struct params *run_params, const int forestnr, struct halo_data **halos, struct forest_info *forests_info)
+int64_t load_forest(struct params *run_params, const int64_t forestnr, struct halo_data **halos, struct forest_info *forests_info)
 {
 
     int64_t nhalos;

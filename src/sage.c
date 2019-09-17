@@ -24,7 +24,7 @@
 #endif
 
 /* main sage -> not exposed externally */
-int32_t sage_per_forest(const int forestnr, struct save_info *save_info,
+int32_t sage_per_forest(const int64_t forestnr, struct save_info *save_info,
                         struct forest_info *forest_info, struct params *run_params);
 
 int init_sage(const int ThisTask, const char *param_file, struct params *run_params)
@@ -193,7 +193,7 @@ int32_t finalize_sage(struct params *run_params)
 
 // Local Functions //
 
-int32_t sage_per_forest(const int forestnr, struct save_info *save_info,
+int32_t sage_per_forest(const int64_t forestnr, struct save_info *save_info,
                         struct forest_info *forest_info, struct params *run_params)
 {
     int32_t status = EXIT_FAILURE;

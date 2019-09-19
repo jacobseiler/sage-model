@@ -222,7 +222,7 @@ int32_t initialize_hdf5_galaxy_files(const int filenr, struct save_info *save_in
 
         hsize_t dims[1] = {0};
         hsize_t maxdims[1] = {H5S_UNLIMITED};
-        hsize_t chunk_dims[1] = {NUM_GALS_PER_BUFFER};
+        hsize_t chunk_dims[1] = {100*NUM_GALS_PER_BUFFER};
         char full_field_name[MAX_STRING_LEN];
 
         // Create a snapshot group.

@@ -112,10 +112,12 @@ int run_sage(const int ThisTask, const int NTasks, struct params *run_params)
 
     run_params->interrupted = 0;
     if(ThisTask == 0) {
-        init_my_progressbar(stderr, Nforests, &(run_params->interrupted));
+        init_my_progressbar(stderr, forest_info.totnforests, &(run_params->interrupted));
 #ifdef MPI
-        fprintf(stderr, "Please Note: The progress bar is not precisely reliable in MPI. "
-                        "It should be used as a general indicator only.\n");
+        if(NTasks > 1) {
+            fprintf(stderr, "Please Note: The progress bar is not precisely reliable in MPI. "
+                    "It should be used as a general indicator only.\n");
+        }
 #endif
     }
 
@@ -131,7 +133,8 @@ int run_sage(const int ThisTask, const int NTasks, struct params *run_params)
             return status;
         }
 
-        nforests_done++;
+        nforests_done += NTasks; /*MS: 20/9/2019 -- Attempting to adjust for MPI (assuming that every forest completed
+                                   on task 0 has equivalent forests completed on other tasks)*/
     }
 
     status = finalize_galaxy_files(&forest_info, &save_info, run_params);

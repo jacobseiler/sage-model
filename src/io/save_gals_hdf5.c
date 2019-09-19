@@ -1155,33 +1155,12 @@ int32_t write_header(hid_t file_id, const struct forest_info *forest_info, const
     hsize_t dims[1];
     dims[0] = run_params->Snaplistlen;
 
-    // JS: Now for some reason, attempting to pass and write the `run_params->ZZ` array directly yields
-    // garbage being written.  Hence I'm going to create a temp array and write this instead.
-
-    /* MS: 19/9/2019 I refuse to believe that. I am going with this was some other issue
-       Yup - found it (5 mins later). ZZ is a double array!
-     */
-    /* float *tmp; */
-    /* tmp = malloc(dims[0] * sizeof(float)); */
-    /* for(int32_t i = 0; i < run_params->Snaplistlen; ++i) { */
-    /*     tmp[i] = run_params->ZZ[i]; */
-    /* } */
-
     CREATE_AND_WRITE_DATASET(file_id, "Header/snapshot_redshifts", dims, run_params->ZZ, H5T_NATIVE_DOUBLE, sizeof(run_params->ZZ[0]));
-    /* free(tmp); */
 
     // Output snapshots.
     dims[0] = run_params->NOUT;
 
-    // Same as above, garbage was being written for `run_params->ListOutputSnaps`.
-    /* MS: 19/9/2019 -> still refuse to believe! */
-    /* int32_t *int_tmp; */
-    /* int_tmp = malloc(run_params->NOUT * sizeof(int32_t)); */
-    /* for(int32_t i = 0; i < run_params->NOUT; ++i) { */
-    /*     int_tmp[i] = run_params->ListOutputSnaps[i]; */
-    /* } */
     CREATE_AND_WRITE_DATASET(file_id, "Header/output_snapshots", dims, run_params->ListOutputSnaps, H5T_NATIVE_INT, sizeof(run_params->ListOutputSnaps[0]));
-    /* free(int_tmp); */
 
     CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "NumOutputs", &run_params->MAXSNAPS, H5T_NATIVE_INT);
 

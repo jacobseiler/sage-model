@@ -150,6 +150,8 @@ void myfree(void *p)
 {
 	assert(Nblocks > 0);
 
+    if(p == NULL) return;
+
 #if 0
     if(p != Table[Nblocks - 1]) {
         printf("Wrong call of myfree() - not the last allocated block!\n");

@@ -101,6 +101,7 @@ void cleanup_forests_io(enum Valid_TreeTypes TreeType, struct forest_info *fores
     switch (TreeType) {
 #ifdef HDF5
     case illustris_lhalo_hdf5:
+        cleanup_forests_io_lht_hdf5(forests_info);
         break;
 
     /* case genesis_standard_hdf5: */
@@ -143,13 +144,7 @@ int64_t load_forest(struct params *run_params, const int64_t forestnr, struct ha
 
 #ifdef HDF5
     case illustris_lhalo_hdf5:
-        nhalos = load_forest_hdf5(forestnr, halos, forests_info);
-
-        int status = convert_units_for_forest(*halos, nhalos, run_params->Hubble_h);
-        if(status != EXIT_SUCCESS) {
-            return -1;
-        }
-
+        nhalos = load_forest_hdf5(forestnr, halos, forests_info, run_params->Hubble_h);
         break;
 
     /* case genesis_standard_hdf5: */

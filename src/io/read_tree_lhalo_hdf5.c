@@ -35,7 +35,7 @@ void get_forests_filename_lht_hdf5(char *filename, const size_t len, const int f
 
 
 int setup_forests_io_lht_hdf5(struct forest_info *forests_info, const int firstfile, const int lastfile,
-                              const int ThisTask, const int NTasks, const struct params *run_params)
+                              const int ThisTask, const int NTasks, struct params *run_params)
 {
 
     const int numfiles = lastfile - firstfile + 1;
@@ -250,16 +250,18 @@ int setup_forests_io_lht_hdf5(struct forest_info *forests_info, const int firstf
     // same volume (e.g., a void would contain few trees whilst a dense knot would contain many).
     forests_info->frac_volume_processed = 0.0;
     for(int32_t filenr = start_filenum; filenr <= end_filenum; filenr++) {
-        forests_info->frac_volume_processed += (float) num_forests_to_process_per_file[filenr] / (float) totnforests_per_file[filenr];
+        forests_info->frac_volume_processed += (double) num_forests_to_process_per_file[filenr] / (double) totnforests_per_file[filenr];
     }
-    forests_info->frac_volume_processed /= (float) run_params->NumSimulationTreeFiles;
-
+    forests_info->frac_volume_processed /= (double) run_params->NumSimulationTreeFiles;
 
     free(num_forests_to_process_per_file);
     free(start_forestnum_to_process_per_file);
     free(totnforests_per_file);
 
-
+    /* Finally setup the multiplication factors necessary to generate
+       unique galaxy indices (across all files, all trees and all tasks) for this run*/
+    run_params->FileNr_Mulfac = 1000000000000000LL;
+    run_params->ForestNr_Mulfac = 1000000000LL;
     
     return EXIT_SUCCESS;
 }

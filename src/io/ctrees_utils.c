@@ -17,7 +17,6 @@
 #include "ctrees_utils.h"
 #include "parse_ctrees.h"
 
-int CTREES_UPID_FEATURE = 0;
 
 int64_t find_fof_halo(const int64_t totnhalos, const struct additional_info *info, const int start_loc, const int64_t upid, int verbose, int64_t calldepth);
 
@@ -94,6 +93,10 @@ int64_t read_locations(const char *filename, const int64_t ntrees, struct locati
              numfiles_allocated*sizeof(files_fd->fd[0]), numfiles_allocated);
     files_fd->nallocated = numfiles_allocated;
     files_fd->numfiles = 0;
+
+    files_fd->numtrees_per_file = calloc(numfiles_allocated, sizeof(files_fd->numtrees_per_file[0]));
+    XASSERT( files_fd->numtrees_per_file != NULL, MALLOC_FAILURE, "Error: Could not allocate memory of %zu bytes to hold %"PRIu32" items containing 64-bit integers",
+             numfiles_allocated*sizeof(files_fd->numtrees_per_file[0]), numfiles_allocated);
     for(uint32_t i=0;i<numfiles_allocated;i++) {
         files_fd->fd[i] = -1;
     }
@@ -114,11 +117,16 @@ int64_t read_locations(const char *filename, const int64_t ntrees, struct locati
                     ntrees, ntrees_found);
             int nitems = sscanf(buffer, "%"SCNd64" %d %"SCNd64 "%s",
                                 &locations->treeid, &locations->fileid, &locations->offset, linebuf);
+            XASSERT(nitems == nitems_expected, EXIT_FAILURE, "Expected to parse %d items but the scanf produced %d items instead.\n"
+                    "The bufound `%s' in the buffer\n", nitems_expected, nitems, buffer);
 
             XASSERT(locations->offset >= 0, INVALID_VALUE_READ_FROM_FILE,
                     "offset=%"PRId64" for ntree =%"PRId64" must be positive.\nFile = `%s'\nbuffer = `%s'\n",
                     locations->offset, ntrees_found, filename, buffer);
 
+            XASSERT(locations->fileid >= 0, INVALID_VALUE_READ_FROM_FILE,
+                    "locations->fileid=%d for ntree =%"PRId64" must be positive.\nFile = `%s'\nbuffer = `%s'\n",
+                    locations->fileid, ntrees_found, filename, buffer);
             const size_t fileid = locations->fileid;
             if(fileid > files_fd->nallocated) {
                 numfiles_allocated *= 2;
@@ -126,9 +134,15 @@ int64_t read_locations(const char *filename, const int64_t ntrees, struct locati
                 XASSERT(new_fd != NULL, MALLOC_FAILURE, "Error: Could not re-allocate memory of %zu bytes to hold %"PRIu32" file descriptors\n",
                         numfiles_allocated*sizeof(files_fd->fd[0]), numfiles_allocated);
 
+                void *new_numtrees = realloc(files_fd->numtrees_per_file, numfiles_allocated*sizeof(files_fd->numtrees_per_file[0]));
+                XASSERT(new_numtrees != NULL, MALLOC_FAILURE, "Error: Could not re-allocate memory of %zu bytes to hold %"PRIu32" items containing 64-bit integers\n",
+                        numfiles_allocated*sizeof(files_fd->numtrees_per_file[0]), numfiles_allocated);
+                
                 files_fd->fd = new_fd;
+                files_fd->numtrees_per_file = new_numtrees;
                 for(uint32_t i=files_fd->nallocated;i<numfiles_allocated;i++) {
                     files_fd->fd[i] = -1;
+                    files_fd->numtrees_per_file[i] = 0;
                 };
                 files_fd->nallocated = numfiles_allocated;
             }
@@ -144,8 +158,8 @@ int64_t read_locations(const char *filename, const int64_t ntrees, struct locati
                 XASSERT( files_fd->fd[fileid] > 0, FILE_NOT_FOUND, "Error: Could not open file `%s'\n", treefilename);
                 files_fd->numfiles++;
             }
-
-            XASSERT(nitems == nitems_expected, EXIT_FAILURE, "Expected to parse two long integers but found `%s' in the buffer\n", buffer);
+            files_fd->numtrees_per_file[fileid]++;
+            
             ntrees_found++;
             locations++;
         }
@@ -366,7 +380,7 @@ int fix_flybys(const int64_t totnhalos, struct halo_data *forest, struct additio
 }
 
 
-int fix_upid(const int64_t totnhalos, struct halo_data *forest, struct additional_info *info, int *interrupted, const int verbose)
+int fix_upid(const int64_t totnhalos, struct halo_data *forest, struct additional_info *info, const int verbose)
 {
 
     int max_snapnum = -1;
@@ -434,12 +448,6 @@ int fix_upid(const int64_t totnhalos, struct halo_data *forest, struct additiona
                 "could not locate fof halo for i = %"PRId64" id = %"PRId64" upid = %"PRId64" loc=%"PRId64"\n",
                 i, info[i].id, upid, loc);
         const int64_t new_upid = info[loc].id;
-        if(new_upid != upid && CTREES_UPID_FEATURE == 0) {
-            fprintf(stderr, ANSI_COLOR_RED "Fixing upid for i=%"PRId64" original upid =%"PRId64" new fof upid = %"PRId64 ANSI_COLOR_RESET"\n",
-                    i, upid, new_upid);
-            CTREES_UPID_FEATURE = 1;
-            *interrupted = 1;
-        }
         if(verbose) {
             fprintf(stderr,"setting upid/pid for halonum = %"PRId64" to %"PRId64". previously: pid = %"PRId64" upid = %"PRId64". id = %"PRId64"\n",
                     i, new_upid, info[i].pid, info[i].upid, info[i].id);
@@ -673,7 +681,7 @@ int64_t find_fof_halo(const int64_t totnhalos, const struct additional_info *inf
         return start_loc;/* should never be called to find the FOF of a FOF halo -> but whatever*/
     }
 
-    const int64_t max_recursion_depth = 30, recursion_depth_for_verbose = 3;
+    const int64_t max_recursion_depth = 30, recursion_depth_for_verbose = 5;
     if(calldepth >= recursion_depth_for_verbose) {
         verbose = 1;
     }

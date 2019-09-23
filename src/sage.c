@@ -125,6 +125,7 @@ int run_sage(const int ThisTask, const int NTasks, struct params *run_params)
     for(int64_t forestnr = 0; forestnr < Nforests; forestnr++) {
         if(ThisTask == 0) {
             my_progressbar(stderr, nforests_done, &(run_params->interrupted));
+            fflush(stdout);
         }
 
         /* the millennium tree is really a collection of trees, viz., a forest */

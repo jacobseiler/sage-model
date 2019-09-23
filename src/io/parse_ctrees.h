@@ -18,7 +18,7 @@
 #include <stddef.h> /* for offsetof macro*/
 
 #include "../sglib.h"
-
+#include "../core_mymalloc.h"
 
 /* this is the maximum number of CTREES columns that can be requested
    (note: it is okay for the ctrees `tree_?_?_?.dat` files themselves to contain more columns) */
@@ -140,12 +140,12 @@ static inline int * match_column_name(const char (*wanted_columns)[PARSE_CTREES_
 
 static inline int reallocate_base_ptrs(struct base_ptr_info *base_info, const int64_t new_N)
 {
-    fprintf(stderr,"reallocating from %"PRId64" elements to a %"PRId64" elements. current N = %"PRId64"\n",
-            base_info->nallocated, new_N, base_info->N);
+    /* fprintf(stderr,"reallocating from %"PRId64" elements to a %"PRId64" elements. current N = %"PRId64"\n", */
+    /*         base_info->nallocated, new_N, base_info->N); */
     for(int64_t i=0;i<base_info->num_base_ptrs;i++) {
         void **this_ptr = base_info->base_ptrs[i];
         const size_t size = base_info->base_element_size[i];
-        void *tmp = realloc(*this_ptr, size*new_N);
+        void *tmp = myrealloc(*this_ptr, size*new_N);
         if(tmp == NULL) {
             fprintf(stderr,"Error: Failed to re-allocated memory to go from %"PRId64" to %"PRId64" elements, each of size = %zu bytes\n",
                     base_info->nallocated, new_N, size);
@@ -239,20 +239,22 @@ static inline int parse_header_ctrees(char (*column_names)[PARSE_CTREES_MAX_COLN
                 if(token[i] == '(') {
 
 #if 1
-                    /* locate the ending ')' -- this while loop is only for additional
-                       testing and can be commented out */
-                    size_t j = i+1;
-                    while(j < totlen) {
-                        if(token[j] == ')') {
-                            token[j] = '\0';
-                            /* fprintf(stderr," `token = %s` ", &token[i+1]); */
-                            int ctrees_colnum = atoi(&(token[i+1]));
-                            PARSE_CTREES_XASSERT(ctrees_colnum == col, EXIT_FAILURE,
-                                                 "ctrees_colnum = %d should equal col = %d\n",
-                                                 ctrees_colnum, col);
-                            break;
+                    if(col <= 34) {
+                        /* locate the ending ')' -- this while loop is only for additional
+                           testing and can be commented out */
+                        size_t j = i+1;
+                        while(j < totlen) {
+                            if(token[j] == ')') {
+                                token[j] = '\0';
+                                /* fprintf(stderr," `token = %s` ", &token[i+1]); */
+                                int ctrees_colnum = atoi(&(token[i+1]));
+                                PARSE_CTREES_XASSERT(ctrees_colnum == col, EXIT_FAILURE,
+                                                     "ctrees_colnum = %d should equal col = %d\n",
+                                                     ctrees_colnum, col);
+                                break;
+                            }
+                            j++;
                         }
-                        j++;
                     }
 #endif
                     break;
@@ -474,7 +476,12 @@ static inline int read_single_tree_ctrees(int fd, off_t offset, const struct ctr
                 if(*this == '\n') {
                     *this = '\0';
 
-                    assert( this >= start && this - start < PARSE_CTREES_MAXBUFSIZE);
+                    if( ! ( this >= start && this - start < PARSE_CTREES_MAXBUFSIZE)) {
+                        fprintf(stderr, "Error: Expected this = %p to be >= start = %p "
+                                "and (this - start) = %lu to be less than PARSE_CTREES_MAXBUFSIZE = %u\n",
+                                this, start, this - start, PARSE_CTREES_MAXBUFSIZE);
+                        return EXIT_FAILURE;
+                    }
 
                     char linebuf[PARSE_CTREES_MAXBUFSIZE];
                     memmove(linebuf, start, this - start + 1);

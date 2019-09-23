@@ -94,6 +94,7 @@ int setup_forests_io_ctrees(struct forest_info *forests_info, const int ThisTask
      */
     start_forestnum += ThisTask <= rem_nforests ? ThisTask:rem_nforests; /* assumes that "0<= ThisTask < NTasks" */
     const int64_t end_forestnum = start_forestnum + nforests_this_task; /* not inclusive, i.e., do not process foresnr == end_forestnum */
+
     int64_t ntrees_this_task = 0;
     int64_t start_treenum = -1;
     prev_forestid = -1;
@@ -121,8 +122,12 @@ int setup_forests_io_ctrees(struct forest_info *forests_info, const int ThisTask
             "Error: start_treenum = %"PRId64" must be in range [0, %"PRId64"]\n",
             start_treenum, totntrees);
 
+
+    
     ctr->nforests = nforests_this_task;
     ctr->ntrees_per_forest = mymalloc(nforests_this_task * sizeof(ctr->ntrees_per_forest[0]));
+
+
     XASSERT(ctr->ntrees_per_forest != NULL, MALLOC_FAILURE, "Error: Could not allocate memory to store the number of trees per forest\n"
             "nforests_this_task = %"PRId64". Total number of bytes = %"PRIu64"\n",nforests_this_task, nforests_this_task*sizeof(ctr->ntrees_per_forest[0]));
     ctr->start_treenum_per_forest = mymalloc(nforests_this_task * sizeof(ctr->start_treenum_per_forest[0]));
@@ -136,10 +141,28 @@ int setup_forests_io_ctrees(struct forest_info *forests_info, const int ThisTask
     XASSERT(ctr->tree_fd != NULL, MALLOC_FAILURE, "Error: Could not allocate memory to store the file descriptor per tree\n"
             "ntrees_this_task = %"PRId64". Total number of bytes = %"PRIu64"\n",ntrees_this_task, ntrees_this_task*sizeof(ctr->tree_fd[0]));
 
+    forests_info->FileNr = malloc(nforests_this_task * sizeof(*(forests_info->FileNr)));
+    CHECK_POINTER_AND_RETURN_ON_NULL(forests_info->FileNr,
+                                     "Failed to allocate %"PRId64" elements of size %zu for forests_info->FileNr", nforests_this_task,
+                                     sizeof(*(forests_info->FileNr)));
+    
+    forests_info->original_treenr = malloc(nforests_this_task * sizeof(*(forests_info->original_treenr)));
+    CHECK_POINTER_AND_RETURN_ON_NULL(forests_info->original_treenr,
+                                     "Failed to allocate %"PRId64" elements of size %zu for forests_info->original_treenr", nforests_this_task,
+                                     sizeof(*(forests_info->original_treenr)));
+    
     iforest = -1;
     prev_forestid = -1;
     int first_tree = 0;
     const int64_t end_treenum = start_treenum + ntrees_this_task;
+
+
+    // We assume that each of the input tree files span the same volume. Hence by summing the
+    // number of trees processed by each task from each file, we can determine the
+    // fraction of the simulation volume that this task processes.  We weight this summation by the
+    // number of trees in each file because some files may have more/less trees whilst still spanning the
+    // same volume (e.g., a void would contain few trees whilst a dense knot would contain many).
+    forests_info->frac_volume_processed = 0.0;
     for(int64_t i=start_treenum;i<end_treenum;i++) {
         if(locations[i].forestid != prev_forestid) {
             iforest++;
@@ -153,6 +176,13 @@ int setup_forests_io_ctrees(struct forest_info *forests_info, const int ThisTask
             ctr->ntrees_per_forest[iforest] = 1;
             ctr->start_treenum_per_forest[iforest] = treeindex;
             first_tree = 0;
+
+            /* MS: The 'filenr' variable is not unique at the forest level
+             i.e., the trees from the same forest could belong to different files.
+             The choice we make here is to pick the filenr corresponding to the
+             first tree in the forest */
+            forests_info->FileNr[iforest] = locations[i].fileid;
+            forests_info->original_treenr[iforest] = locations[i].forestid;/* MS: Stores the forestID as assigned by CTrees */
         } else {
             /* still the same forest -> increment the number
                of trees this forest has */
@@ -169,12 +199,20 @@ int setup_forests_io_ctrees(struct forest_info *forests_info, const int ThisTask
         const int64_t fileid = locations[i].fileid;
         ctr->tree_fd[treeindex] = files_fd.fd[fileid];
         ctr->tree_offsets[treeindex] = locations[i].offset;
+
+        /* MS: 23/9/2019 each tree from a given file is inversely weighted by the total
+           number of trees in that file */ 
+        forests_info->frac_volume_processed += 1.0/(double) files_fd.numtrees_per_file[fileid];
     }
     XASSERT(iforest == nforests_this_task-1, EXIT_FAILURE,
             "Error: Should have recovered the exact same value of forests. iforest = %"PRId64" should equal nforests =%"PRId64" - 1 \n",
             iforest, nforests_this_task);
     free(locations);
 
+    /*MS: 23/9/2019 Fix up the normalisation to make the volume in [0.0, 1.0] (the previous step adds 1.0 per file
+      -> the sum should be NumSimulationTreeFiles) */
+    forests_info->frac_volume_processed /= (double) run_params->NumSimulationTreeFiles;
+        
     ctr->numfiles = files_fd.numfiles;
     ctr->open_fds = mymalloc(ctr->numfiles * sizeof(ctr->open_fds[0]));
     XASSERT(ctr->open_fds != NULL, MALLOC_FAILURE, "Error: Could not allocate memory to store the file descriptor per file\n"
@@ -183,6 +221,8 @@ int setup_forests_io_ctrees(struct forest_info *forests_info, const int ThisTask
     for(int i=0;i<ctr->numfiles;i++) {
         ctr->open_fds[i] = files_fd.fd[i];
     }
+
+    free(files_fd.numtrees_per_file);
     free(files_fd.fd);
 
     /* Now need to parse the header to figure out which columns go where ... */
@@ -237,6 +277,7 @@ int setup_forests_io_ctrees(struct forest_info *forests_info, const int ThisTask
                                        offsetof(struct halo_data, Spin[0]),
                                        offsetof(struct halo_data, Spin[1]),
                                        offsetof(struct halo_data, Spin[2]),
+                                       /* only one of 'snap_num' or 'snap_idx' will be found -> assign to SnapNum within struct halo_data*/
                                        offsetof(struct halo_data, SnapNum), offsetof(struct halo_data, SnapNum),
                                        offsetof(struct halo_data, M_Mean200),
                                        offsetof(struct halo_data, M_TopHat)};
@@ -263,6 +304,12 @@ int setup_forests_io_ctrees(struct forest_info *forests_info, const int ThisTask
         ABORT(FILE_READ_ERROR);
     }
 
+
+    /* Finally setup the multiplication factors necessary to generate
+       unique galaxy indices (across all files, all trees and all tasks) for this run*/
+    run_params->FileNr_Mulfac = 0;
+    run_params->ForestNr_Mulfac = 1000000000LL;/*MS: The ID needs to fit in 64 bits -> ID must be <  2^64 ~ 1e19.*/
+    
     return EXIT_SUCCESS;
 }
 
@@ -318,21 +365,21 @@ int64_t load_forest_ctrees(const int32_t forestnr, struct halo_data **halos, str
     const int64_t totnhalos = base_info.N;
     const int64_t nallocated = base_info.nallocated;
     /* fprintf(stderr,"Reading in forestnr = %d ...done. totnhalos = %"PRId64"\n", forestnr, totnhalos); */
-    /* forests_info->totnhalos_per_forest[forestnr] = (int32_t) totnhalos; */
+    /* forests_info->totnhalos_per_forest[forestnr] = totnhalos; */
 
-    XASSERT(totnhalos  < nallocated, -1,"Error: Total number of halos loaded = %"PRId64" must be less than the number of halos "
+    XASSERT(totnhalos  <= nallocated, -1,"Error: Total number of halos loaded = %"PRId64" must not exceed the number of halos "
             "allocated = %"PRId64"\n", base_info.N, nallocated);
 
     /* release any additional memory that may have been allocated */
-    *halos = myrealloc(*halos, totnhalos * sizeof(struct halo_data));
-    XASSERT( *halos != NULL, -1, "Bug: This should not have happened -- a 'realloc' call to reduce the amount of memory failed\n"
-             "Trying to reduce from %"PRIu64" bytes to %"PRIu64" bytes\n",
-             nhalos_allocated*sizeof(struct halo_data), totnhalos * sizeof(struct halo_data));
+    /* *halos = myrealloc(*halos, totnhalos * sizeof(struct halo_data)); */
+    /* XASSERT( *halos != NULL, -1, "Bug: This should not have happened -- a 'realloc' call to reduce the amount of memory failed\n" */
+    /*          "Trying to reduce from %"PRIu64" bytes to %"PRIu64" bytes\n", */
+    /*          nhalos_allocated*sizeof(struct halo_data), totnhalos * sizeof(struct halo_data)); */
 
-    info = myrealloc(info, totnhalos * sizeof(struct additional_info));
-    XASSERT( info != NULL, -1, "Bug: This should not have happened -- a 'realloc' call (for 'struct additional_info')"
-             "to reduce the amount of memory failed\nTrying to reduce from %"PRIu64" bytes to %"PRIu64" bytes\n",
-             nhalos_allocated * sizeof(struct additional_info), totnhalos * sizeof(struct additional_info));
+    /* info = myrealloc(info, totnhalos * sizeof(struct additional_info)); */
+    /* XASSERT( info != NULL, -1, "Bug: This should not have happened -- a 'realloc' call (for 'struct additional_info')" */
+    /*          "to reduce the amount of memory failed\nTrying to reduce from %"PRIu64" bytes to %"PRIu64" bytes\n", */
+    /*          nhalos_allocated * sizeof(struct additional_info), totnhalos * sizeof(struct additional_info)); */
 
     /* all halos belonging to this forest have now been loaded up */
 
@@ -346,8 +393,8 @@ int64_t load_forest_ctrees(const int32_t forestnr, struct halo_data **halos, str
     }
 
 
-    /* Entire tree is loaded in. Fix upid's*/
-    const int max_snapnum = fix_upid(totnhalos, forest_halos, info, &(run_params->interrupted), verbose);
+    /* Entire tree is loaded in. Fix upid's (i.e., only keep 1-level halo hierarchy: FOF->subhalo */
+    const int max_snapnum = fix_upid(totnhalos, forest_halos, info, verbose);
 
     /* Now the entire tree is loaded in. Assign the mergertree indices */
     assign_mergertree_indices(totnhalos, forest_halos, info, max_snapnum);

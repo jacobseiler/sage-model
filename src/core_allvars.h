@@ -18,18 +18,18 @@
 /* This structure contains the properties used within the code */
 struct GALAXY
 {
-  int   SnapNum;
-  int   Type;
-
-  int   GalaxyNr;
-  int   CentralGal;
-  int   HaloNr;
-  long long MostBoundID;
-  int64_t GalaxyIndex; // This is a unique value based on the tree local galaxy number,
-                       // file local tree number and the file number itself.
+    int   SnapNum;
+    int   Type;
+    
+    int   GalaxyNr;
+    int   CentralGal;
+    int   HaloNr;
+    long long MostBoundID;
+    uint64_t GalaxyIndex; // This is a unique value based on the tree local galaxy number,
+    // file local tree number and the file number itself.
                        // See ``generate_galaxy_index()`` in ``core_save.c``.
-  int64_t CentralGalaxyIndex; // Same as above, except the ``GalaxyIndex`` value for the CentralGalaxy
-                              // of this galaxy's FoF group.
+    uint64_t CentralGalaxyIndex; // Same as above, except the ``GalaxyIndex`` value for the CentralGalaxy
+    // of this galaxy's FoF group.
 
   int   mergeType;  /* 0=none; 1=minor merger; 2=major merger; 3=disk instability; 4=disrupt to ICS */
   int   mergeIntoID;
@@ -138,6 +138,7 @@ enum Valid_OutputFormats
   num_output_format_types
 };
 
+
 /* do not use '0' as an enum since that '0' usually
    indicates 'success' on POSIX systems */
 enum sage_error_types {
@@ -200,7 +201,6 @@ struct ctrees_info {
     int *tree_fd;/* contains ntrees elements */
     off_t *tree_offsets;/* contains ntrees elements */
 
-
     /* file level quantities */
     int *open_fds;/* contains numfiles elements of open file descriptors */
     int32_t numfiles;/* total number of files the forests are spread over (BOX_DIVISIONS^3 per Consistent trees terminology) */
@@ -227,7 +227,7 @@ struct forest_info {
     };
     int64_t totnforests;  // Total number of forests across **all** input tree files.
     int64_t nforests_this_task; // Total number of forests processed by **this** task.
-    float frac_volume_processed; // Fraction of the simulation volume processed by **this** task.
+    double frac_volume_processed; // Fraction of the simulation volume processed by **this** task.
     // We assume that each of the input tree files span the same volume. Hence by summing the
     // number of trees processed by each task from each file, we can determine the
     // fraction of the simulation volume that this task processes.  We weight this summation by the
@@ -332,6 +332,8 @@ struct params
     int Snaplistlen;
     enum Valid_TreeTypes TreeType;
     enum Valid_OutputFormats OutputFormat;
+    int64_t FileNr_Mulfac;
+    int64_t ForestNr_Mulfac;
 
     int ListOutputSnaps[ABSOLUTEMAXSNAPS];
     double ZZ[ABSOLUTEMAXSNAPS];

@@ -926,14 +926,25 @@ int32_t prepare_galaxy_for_hdf5_output(struct GALAXY *g, struct save_info *save_
 // -> Create a dataspace that will hold the data -> Write the data to the group using the new spaces.
 // Please refer to the HDF5 documentation for comprehensive explanations. I've probably butchered this...
 
-#define EXTEND_AND_WRITE_GALAXY_DATASET(field_name, h5_dtype) { \
+/*MS: 23/9/2019 Yes, there appears to be a NULL pointer dereference but the expression
+ is a compile time constant and there is no invalid memory access. That said, C really shouold
+ not allow such constructs! */
+#define SIZEOF_STRUCT_FIELD(field)    (sizeof(((struct HDF5_GALAXY_OUTPUT *) NULL)->field))
+#define EXTEND_AND_WRITE_GALAXY_DATASET(field_name) {              \
     hid_t dataset_id = save_info->dataset_ids[snap_idx][field_idx]; \
     if(dataset_id < 0) {                          \
-        fprintf(stderr, "Could not access the #field_name dataset for output snapshot %d.\n" \
-                        "The HDF5 datatype was '" #h5_dtype".\n", snap_idx); \
+        fprintf(stderr, "Could not access the #field_name dataset for output snapshot %d.\n", snap_idx);\
         return (int32_t) dataset_id;              \
     }                                             \
-    status = H5Dset_extent(dataset_id, new_dims); \
+    hid_t h5_dtype = H5Dget_type(dataset_id);     \
+    if(SIZEOF_STRUCT_FIELD(field_name) != H5Tget_size(h5_dtype)) {             \
+        fprintf(stderr,"Error while reading field " #field_name"\n"); \
+        fprintf(stderr,"The HDF5 dataset has size %zu bytes but the struct element has size = %zu bytes\n", \
+                H5Tget_size(h5_dtype), SIZEOF_STRUCT_FIELD(field_name));       \
+        fprintf(stderr,"Perhaps the size of the struct item needs to be updated?\n"); \
+        return -1;                                                      \
+    }                                                                   \
+    status = H5Dset_extent(dataset_id, new_dims);     \
     if(status < 0) {                              \
         fprintf(stderr, "Could not resize the dimensions of the #field_name dataset for output snapshot %d.\n" \
                         "The dataset ID value is %d. The new dimension values were #new_dims\n", snap_idx, (int32_t) dataset_id); \
@@ -978,6 +989,7 @@ int32_t prepare_galaxy_for_hdf5_output(struct GALAXY *g, struct save_info *save_
     field_idx++;                                  \
 }
 
+
 // Extend the length of each dataset in our file and write the data to it.
 // We have to specify the number of items to write `num_to_write` because this function is called
 // both when we reach the buffer limit and during finalization where we write the remaining galaxies.
@@ -1009,60 +1021,60 @@ int32_t trigger_buffer_write(int32_t snap_idx, int32_t num_to_write, int64_t num
 
     // We now need to write each property to file.  This is performed in a stack of macros because
     // it's not possible to loop through the members of a struct.
-    EXTEND_AND_WRITE_GALAXY_DATASET(SnapNum, H5T_NATIVE_INT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(Type, H5T_NATIVE_INT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(GalaxyIndex, H5T_NATIVE_LLONG);
-    EXTEND_AND_WRITE_GALAXY_DATASET(CentralGalaxyIndex, H5T_NATIVE_LLONG);
-    EXTEND_AND_WRITE_GALAXY_DATASET(SAGEHaloIndex, H5T_NATIVE_INT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(SAGETreeIndex, H5T_NATIVE_INT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(SimulationHaloIndex, H5T_NATIVE_LLONG);
-    EXTEND_AND_WRITE_GALAXY_DATASET(mergeType, H5T_NATIVE_INT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(mergeIntoID, H5T_NATIVE_INT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(mergeIntoSnapNum, H5T_NATIVE_INT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(dT, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(Posx, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(Posy, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(Posz, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(Velx, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(Vely, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(Velz, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(Spinx, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(Spiny, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(Spinz, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(Len, H5T_NATIVE_INT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(Mvir, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(CentralMvir, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(Rvir, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(Vvir, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(Vmax, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(VelDisp, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(ColdGas, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(StellarMass, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(BulgeMass, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(HotGas, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(EjectedMass, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(BlackHoleMass, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(ICS, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(MetalsColdGas, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(MetalsStellarMass, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(MetalsBulgeMass, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(MetalsHotGas, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(MetalsEjectedMass, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(MetalsICS, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(SfrDisk, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(SfrBulge, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(SfrDiskZ, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(SfrBulgeZ, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(DiskScaleRadius, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(Cooling, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(Heating, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(QuasarModeBHaccretionMass, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(TimeOfLastMajorMerger, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(TimeOfLastMinorMerger, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(OutflowRate, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(infallMvir, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(infallVvir, H5T_NATIVE_FLOAT);
-    EXTEND_AND_WRITE_GALAXY_DATASET(infallVmax, H5T_NATIVE_FLOAT);
+    EXTEND_AND_WRITE_GALAXY_DATASET(SnapNum);
+    EXTEND_AND_WRITE_GALAXY_DATASET(Type);
+    EXTEND_AND_WRITE_GALAXY_DATASET(GalaxyIndex);
+    EXTEND_AND_WRITE_GALAXY_DATASET(CentralGalaxyIndex);
+    EXTEND_AND_WRITE_GALAXY_DATASET(SAGEHaloIndex);
+    EXTEND_AND_WRITE_GALAXY_DATASET(SAGETreeIndex);
+    EXTEND_AND_WRITE_GALAXY_DATASET(SimulationHaloIndex);
+    EXTEND_AND_WRITE_GALAXY_DATASET(mergeType);
+    EXTEND_AND_WRITE_GALAXY_DATASET(mergeIntoID);
+    EXTEND_AND_WRITE_GALAXY_DATASET(mergeIntoSnapNum);
+    EXTEND_AND_WRITE_GALAXY_DATASET(dT);
+    EXTEND_AND_WRITE_GALAXY_DATASET(Posx);
+    EXTEND_AND_WRITE_GALAXY_DATASET(Posy);
+    EXTEND_AND_WRITE_GALAXY_DATASET(Posz);
+    EXTEND_AND_WRITE_GALAXY_DATASET(Velx);
+    EXTEND_AND_WRITE_GALAXY_DATASET(Vely);
+    EXTEND_AND_WRITE_GALAXY_DATASET(Velz);
+    EXTEND_AND_WRITE_GALAXY_DATASET(Spinx);
+    EXTEND_AND_WRITE_GALAXY_DATASET(Spiny);
+    EXTEND_AND_WRITE_GALAXY_DATASET(Spinz);
+    EXTEND_AND_WRITE_GALAXY_DATASET(Len);
+    EXTEND_AND_WRITE_GALAXY_DATASET(Mvir);
+    EXTEND_AND_WRITE_GALAXY_DATASET(CentralMvir);
+    EXTEND_AND_WRITE_GALAXY_DATASET(Rvir);
+    EXTEND_AND_WRITE_GALAXY_DATASET(Vvir);
+    EXTEND_AND_WRITE_GALAXY_DATASET(Vmax);
+    EXTEND_AND_WRITE_GALAXY_DATASET(VelDisp);
+    EXTEND_AND_WRITE_GALAXY_DATASET(ColdGas);
+    EXTEND_AND_WRITE_GALAXY_DATASET(StellarMass);
+    EXTEND_AND_WRITE_GALAXY_DATASET(BulgeMass);
+    EXTEND_AND_WRITE_GALAXY_DATASET(HotGas);
+    EXTEND_AND_WRITE_GALAXY_DATASET(EjectedMass);
+    EXTEND_AND_WRITE_GALAXY_DATASET(BlackHoleMass);
+    EXTEND_AND_WRITE_GALAXY_DATASET(ICS);
+    EXTEND_AND_WRITE_GALAXY_DATASET(MetalsColdGas);
+    EXTEND_AND_WRITE_GALAXY_DATASET(MetalsStellarMass);
+    EXTEND_AND_WRITE_GALAXY_DATASET(MetalsBulgeMass);
+    EXTEND_AND_WRITE_GALAXY_DATASET(MetalsHotGas);
+    EXTEND_AND_WRITE_GALAXY_DATASET(MetalsEjectedMass);
+    EXTEND_AND_WRITE_GALAXY_DATASET(MetalsICS);
+    EXTEND_AND_WRITE_GALAXY_DATASET(SfrDisk);
+    EXTEND_AND_WRITE_GALAXY_DATASET(SfrBulge);
+    EXTEND_AND_WRITE_GALAXY_DATASET(SfrDiskZ);
+    EXTEND_AND_WRITE_GALAXY_DATASET(SfrBulgeZ);
+    EXTEND_AND_WRITE_GALAXY_DATASET(DiskScaleRadius);
+    EXTEND_AND_WRITE_GALAXY_DATASET(Cooling);
+    EXTEND_AND_WRITE_GALAXY_DATASET(Heating);
+    EXTEND_AND_WRITE_GALAXY_DATASET(QuasarModeBHaccretionMass);
+    EXTEND_AND_WRITE_GALAXY_DATASET(TimeOfLastMajorMerger);
+    EXTEND_AND_WRITE_GALAXY_DATASET(TimeOfLastMinorMerger);
+    EXTEND_AND_WRITE_GALAXY_DATASET(OutflowRate);
+    EXTEND_AND_WRITE_GALAXY_DATASET(infallMvir);
+    EXTEND_AND_WRITE_GALAXY_DATASET(infallVvir);
+    EXTEND_AND_WRITE_GALAXY_DATASET(infallVmax);
 
     // We've performed a write, so future galaxies will overwrite the old data.
     save_info->num_gals_in_buffer[snap_idx] = 0;
@@ -1071,6 +1083,7 @@ int32_t trigger_buffer_write(int32_t snap_idx, int32_t num_to_write, int64_t num
     return EXIT_SUCCESS;
 }
 
+#undef SIZEOF_STRUCT_FIELD
 #undef EXTEND_AND_WRITE_GALAXY_DATASET
 
 int32_t write_header(hid_t file_id, const struct forest_info *forest_info, const struct params *run_params) {

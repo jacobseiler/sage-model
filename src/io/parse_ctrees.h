@@ -34,6 +34,8 @@
 #error Some of the Consistent-Trees column names are long. Please increase PARSE_CTREES_MAX_COLNAME_LEN to be at least 64
 #endif
 
+#define LAST_NUMBERED_COLUMN_IN_CTREES 34
+
 /* Function-like macros */
 #ifdef NDEBUG
 #define PARSE_CTREES_XASSERT(EXP, EXIT_STATUS, ...)                                  \
@@ -215,7 +217,7 @@ static inline int parse_header_ctrees(char (*column_names)[PARSE_CTREES_MAX_COLN
 
         /* read succeeded -> now parse the column names */
         const char delimiters[] = " ,\n#";/* space, comma, new-line, and #*/
-        char (*names)[PARSE_CTREES_MAX_COLNAME_LEN] = calloc(totncols, sizeof(*names));
+        char (*names)[PARSE_CTREES_MAX_COLNAME_LEN] = calloc(totncols, sizeof(names[0]));
         PARSE_CTREES_XASSERT(names != NULL, EXIT_FAILURE,
                              "Error: Could not allocate memory to store each column name (total size requested = %zu bytes\n)",
                              totncols * sizeof(*names));
@@ -239,7 +241,7 @@ static inline int parse_header_ctrees(char (*column_names)[PARSE_CTREES_MAX_COLN
                 if(token[i] == '(') {
 
 #if 1
-                    if(col <= 34) {
+                    if(col <= LAST_NUMBERED_COLUMN_IN_CTREES) {
                         /* locate the ending ')' -- this while loop is only for additional
                            testing and can be commented out */
                         size_t j = i+1;
@@ -476,9 +478,9 @@ static inline int read_single_tree_ctrees(int fd, off_t offset, const struct ctr
                 if(*this == '\n') {
                     *this = '\0';
 
-                    if( ! ( this >= start && this - start < PARSE_CTREES_MAXBUFSIZE)) {
+                    if( ! ( this >= start && (this - start) < PARSE_CTREES_MAXBUFSIZE)) {
                         fprintf(stderr, "Error: Expected this = %p to be >= start = %p "
-                                "and (this - start) = %lu to be less than PARSE_CTREES_MAXBUFSIZE = %u\n",
+                                "and (this - start) = %ld to be less than PARSE_CTREES_MAXBUFSIZE = %u\n",
                                 this, start, this - start, PARSE_CTREES_MAXBUFSIZE);
                         return EXIT_FAILURE;
                     }
@@ -515,15 +517,16 @@ static inline int read_single_tree_ctrees(int fd, off_t offset, const struct ctr
     return EXIT_SUCCESS;
 }
 
-/* these two macros are for internal use only
+/* these macros are for internal use only
    and can therefor be undefined */
 #undef PARSE_CTREES_MAXBUFSIZE
 #undef PARSE_CTREES_XASSERT
-
+#undef LAST_NUMBERED_COLUMN_IN_CTREES
 
 #if 0
 /* this will be required externally to pass in the
    array of strings, containing the column names  */
 #undef PARSE_CTREES_MAX_COLNAME_LEN
 #endif
+
 

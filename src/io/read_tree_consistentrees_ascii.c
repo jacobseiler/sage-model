@@ -370,19 +370,7 @@ int64_t load_forest_ctrees(const int32_t forestnr, struct halo_data **halos, str
     XASSERT(totnhalos  <= nallocated, -1,"Error: Total number of halos loaded = %"PRId64" must not exceed the number of halos "
             "allocated = %"PRId64"\n", base_info.N, nallocated);
 
-    /* release any additional memory that may have been allocated */
-    /* *halos = myrealloc(*halos, totnhalos * sizeof(struct halo_data)); */
-    /* XASSERT( *halos != NULL, -1, "Bug: This should not have happened -- a 'realloc' call to reduce the amount of memory failed\n" */
-    /*          "Trying to reduce from %"PRIu64" bytes to %"PRIu64" bytes\n", */
-    /*          nhalos_allocated*sizeof(struct halo_data), totnhalos * sizeof(struct halo_data)); */
-
-    /* info = myrealloc(info, totnhalos * sizeof(struct additional_info)); */
-    /* XASSERT( info != NULL, -1, "Bug: This should not have happened -- a 'realloc' call (for 'struct additional_info')" */
-    /*          "to reduce the amount of memory failed\nTrying to reduce from %"PRIu64" bytes to %"PRIu64" bytes\n", */
-    /*          nhalos_allocated * sizeof(struct additional_info), totnhalos * sizeof(struct additional_info)); */
-
     /* all halos belonging to this forest have now been loaded up */
-
     int verbose = 0;
     struct halo_data *forest_halos = *halos;
 
@@ -395,7 +383,10 @@ int64_t load_forest_ctrees(const int32_t forestnr, struct halo_data **halos, str
 
     /* Entire tree is loaded in. Fix upid's (i.e., only keep 1-level halo hierarchy: FOF->subhalo */
     const int max_snapnum = fix_upid(totnhalos, forest_halos, info, verbose);
-
+    if(max_snapnum < 0) {
+        ABORT(max_snapnum);
+    }
+    
     /* Now the entire tree is loaded in. Assign the mergertree indices */
     assign_mergertree_indices(totnhalos, forest_halos, info, max_snapnum);
 

@@ -27,7 +27,7 @@ void *mymalloc(size_t n)
     }
 
     if(Nblocks >= MAXBLOCKS) {
-        printf("Nblocks = %lu No blocks left in mymalloc().\n", Nblocks);
+        printf("Nblocks = %ld No blocks left in mymalloc().\n", Nblocks);
         ABORT(OUT_OF_MEMBLOCKS);
     }
 

@@ -29,8 +29,7 @@ int64_t read_forests(const char *filename, int64_t **f, int64_t **t)
 
     /* By passing the comment character, getnumlines
        will return the actual number of lines, ignoring
-       the first header line.
-    */
+       the first header line. */
     FILE *fp = fopen(filename, "rt");
     if(fp == NULL) {
         printf("Error: can't open file `%s'\n", filename);
@@ -50,17 +49,17 @@ int64_t read_forests(const char *filename, int64_t **f, int64_t **t)
             continue;
         } else {
             const int nitems_expected = 2;
-            XASSERT(ntrees_found < ntrees, -1,
+            XRETURN(ntrees_found < ntrees, -1,
                     "ntrees=%"PRId64" should be less than ntrees_found=%"PRId64"\n", ntrees, ntrees_found);
             int nitems = sscanf(buffer, "%"SCNd64" %"SCNd64, tree_roots, forests);
-            XASSERT(nitems == nitems_expected, -1,
+            XRETURN(nitems == nitems_expected, -1,
                     "Expected to parse %d long integers but found `%s' in the buffer. nitems = %d \n",
                     nitems_expected, buffer, nitems);
             ntrees_found++;tree_roots++;forests++;
         }
     }
     fclose(fp);
-    XASSERT(ntrees == ntrees_found, -1,
+    XRETURN(ntrees == ntrees_found, -1,
             "ntrees=%"PRId64" should be equal to ntrees_found=%"PRId64"\n", ntrees, ntrees_found);
 
     return ntrees;
@@ -115,7 +114,7 @@ int64_t read_locations(const char *filename, const int64_t ntrees, struct locati
             XASSERT(ntrees_found < ntrees, EXIT_FAILURE,
                     "ntrees=%"PRId64" should be less than ntrees_found=%"PRId64"\n",
                     ntrees, ntrees_found);
-            int nitems = sscanf(buffer, "%"SCNd64" %d %"SCNd64 "%s",
+            const int nitems = sscanf(buffer, "%"SCNd64" %d %"SCNd64 "%s",
                                 &locations->treeid, &locations->fileid, &locations->offset, linebuf);
             XASSERT(nitems == nitems_expected, EXIT_FAILURE, "Expected to parse %d items but the scanf produced %d items instead.\n"
                     "The bufound `%s' in the buffer\n", nitems_expected, nitems, buffer);
@@ -146,7 +145,7 @@ int64_t read_locations(const char *filename, const int64_t ntrees, struct locati
                 };
                 files_fd->nallocated = numfiles_allocated;
             }
-            XASSERT(fileid < files_fd->nallocated, EXIT_FAILURE, "Error: Trying to open fileid = %zu but only %d"
+            XRETURN(fileid < files_fd->nallocated, EXIT_FAILURE, "Error: Trying to open fileid = %zu but only %u"
                     " files can be opened (need to malloc) \n",
                     fileid, files_fd->nallocated);
 
@@ -436,7 +435,7 @@ int fix_upid(const int64_t totnhalos, struct halo_data *forest, struct additiona
                     break;
                 }
             }
-            XASSERT( found == 1, EXIT_FAILURE,
+            XRETURN( found == 1, -1,
                      "Error: Could not locate FOF halo for halo with id = %"PRId64" and upid = %"PRId64"\n",
                      info[i].id, upid);
         }
@@ -444,7 +443,7 @@ int fix_upid(const int64_t totnhalos, struct halo_data *forest, struct additiona
             fprintf(stderr,"found FOF halo for halnum = %"PRId64". loc = %"PRId64" id = %"PRId64" upid = %"PRId64"\n",
                     i, loc, info[loc].id, info[loc].upid);
         }
-        XASSERT(loc >=0 && loc < totnhalos, EXIT_FAILURE,
+        XRETURN(loc >=0 && loc < totnhalos, -1,
                 "could not locate fof halo for i = %"PRId64" id = %"PRId64" upid = %"PRId64" loc=%"PRId64"\n",
                 i, info[i].id, upid, loc);
         const int64_t new_upid = info[loc].id;

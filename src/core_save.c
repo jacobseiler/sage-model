@@ -18,11 +18,7 @@
 #include "io/save_gals_hdf5.h"
 #endif
 
-/* #define TREE_MUL_FAC        (1000000000LL) */
-/* #define THISTASK_MUL_FAC      (1000000000000000LL) */
-
 // Local Proto-Types //
-
 int32_t generate_galaxy_indices(const struct halo_data *halos, const struct halo_aux_data *haloaux,
                                 struct GALAXY *halogal, const int64_t numgals,
                                 const int64_t treenr, const int32_t filenr,
@@ -186,10 +182,6 @@ int32_t finalize_galaxy_files(const struct forest_info *forest_info, struct save
 
 // Local Functions //
 
-/* #define TREE_MUL_FAC        (1000000000LL) */
-/* #define THISTASK_MUL_FAC      (1000000000000000LL) */
-
-
 // Generate a unique GalaxyIndex for each galaxy based on the file number, the file-local
 // tree number and the tree-local galaxy number.  NOTE: Both the file number and the tree number are
 // based on the **original simulation files**.  These may be different from the ``forestnr``
@@ -252,6 +244,5 @@ int32_t generate_galaxy_indices(const struct halo_data *halos, const struct halo
     }
 
     return EXIT_SUCCESS;
-
 }
 

@@ -26,8 +26,8 @@ static int32_t prepare_galaxy_for_hdf5_output(struct GALAXY *g, struct save_info
                                               const int64_t original_treenr,
                                               const struct params *run_params);
 
-static int32_t trigger_buffer_write(int32_t snap_idx, int32_t num_to_write, int64_t num_already_written,
-                                    struct save_info *save_info);
+static int32_t trigger_buffer_write(const int32_t snap_idx, const int32_t num_to_write, const int64_t num_already_written,
+                                    struct save_info *save_info, const struct params *run_params);
 
 static int32_t write_header(hid_t file_id, const struct forest_info *forest_info, const struct params *run_params);
 
@@ -84,7 +84,7 @@ static int32_t write_header(hid_t file_id, const struct forest_info *forest_info
                                     "The attribute we wanted to create was '" #attribute_name"'.\n"); \
     hid_t macro_attribute_id = H5Acreate(group_id, attribute_name, atype, macro_dataspace_id, H5P_DEFAULT, H5P_DEFAULT); \
     CHECK_STATUS_AND_RETURN_ON_FAIL(macro_attribute_id, (int32_t) macro_attribute_id, \
-                                    "Could not create an attribute ID.\n" \
+                                    "Could not create an attribute ID for string.\n" \
                                     "The attribute we wanted to create was '" #attribute_name"'.\n"); \
     attr_status = H5Awrite(macro_attribute_id, atype, attribute_value); \
     CHECK_STATUS_AND_RETURN_ON_FAIL(attr_status, (int32_t) attr_status, \
@@ -189,7 +189,7 @@ int32_t initialize_hdf5_galaxy_files(const int filenr, struct save_info *save_in
                                      sizeof(char *));
 
     for(int i=0;i<NUM_OUTPUT_FIELDS;i++) {
-        save_info->name_output_fields[i] = malloc(MAX_STRING_LEN * sizeof(char));
+        save_info->name_output_fields[i] = malloc(MAX_STRING_LEN * sizeof(save_info->name_output_fields[i][0]));
         CHECK_POINTER_AND_RETURN_ON_NULL(save_info->name_output_fields[i],
                                          "Failed to allocate %d elements of size %zu for save_info->name_output_fields[%d]",
                                          NUM_OUTPUT_FIELDS,
@@ -204,23 +204,10 @@ int32_t initialize_hdf5_galaxy_files(const int filenr, struct save_info *save_in
     
     // We will have groups for each output snapshot, and then inside those groups, a dataset for
     // each field.
-    save_info->group_ids = malloc(run_params->NOUT * sizeof(hid_t));
+    save_info->group_ids = malloc(run_params->NOUT * sizeof(save_info->group_ids[0]));
     CHECK_POINTER_AND_RETURN_ON_NULL(save_info->group_ids,
                                      "Failed to allocate %d elements of size %zu for save_info->group_ids", run_params->NOUT,
                                      sizeof(*(save_info->group_ids)));
-    
-    save_info->dataset_ids = malloc(run_params->NOUT * sizeof(*(save_info->dataset_ids)));
-
-    CHECK_POINTER_AND_RETURN_ON_NULL(save_info->dataset_ids,
-                                     "Failed to allocate %d elements of size %zu for save_info->dataset_ids", run_params->NOUT,
-                                     sizeof(*(save_info->dataset_ids)));
-
-    for(int32_t snap_idx = 0; snap_idx < run_params->NOUT; ++snap_idx) {
-        save_info->dataset_ids[snap_idx] = malloc(NUM_OUTPUT_FIELDS * sizeof(hid_t));
-        CHECK_POINTER_AND_RETURN_ON_NULL(save_info->dataset_ids[snap_idx],
-                                         "Failed to allocate %d elements of size %zu for save_info->dataset_ids[%d]", NUM_OUTPUT_FIELDS,
-                                         sizeof(hid_t), snap_idx);
-    }
 
     // A couple of variables before we enter the loop.
     // JS 17/03/19: I've attempted to put these directly into the function calls and things blew up.
@@ -272,13 +259,17 @@ int32_t initialize_hdf5_galaxy_files(const int filenr, struct save_info *save_in
             hid_t dataset_id = H5Dcreate2(file_id, full_field_name, field_dtypes[field_idx], dataspace_id, H5P_DEFAULT, prop, H5P_DEFAULT);
             CHECK_STATUS_AND_RETURN_ON_FAIL(dataset_id, (int32_t) dataset_id,
                                             "Could not create the '%s' dataset.\n", full_field_name);
-            save_info->dataset_ids[snap_idx][field_idx] = dataset_id;
-
 
             // Set metadata attributes for each dataset.
             CREATE_STRING_ATTRIBUTE(dataset_id, "Description", field_descriptions[field_idx], MAX_STRING_LEN);
             CREATE_STRING_ATTRIBUTE(dataset_id, "Units", field_units[field_idx], MAX_STRING_LEN);
 
+            status = H5Dclose(dataset_id);
+            CHECK_STATUS_AND_RETURN_ON_FAIL(status, (int32_t) status,
+                                            "Failed to close field number %d for output snapshot number %d\n"
+                                            "The dataset ID was %d\n", field_idx, snap_idx,
+                                            (int32_t) dataset_id);
+            
             status = H5Pclose(prop);
             CHECK_STATUS_AND_RETURN_ON_FAIL(status, (int32_t) status,
                                             "Failed to close the property list for output snapshot number %d.\n", snap_idx);
@@ -294,17 +285,17 @@ int32_t initialize_hdf5_galaxy_files(const int filenr, struct save_info *save_in
     // writing a single chunk. Unlike the binary instance where we have a single GALAXY_OUTPUT
     // struct instance per galaxy, here HDF5_GALAXY_OUTPUT is a **struct of arrays**.
     save_info->buffer_size = NUM_GALS_PER_BUFFER;
-    save_info->num_gals_in_buffer = calloc(run_params->NOUT, sizeof(*(save_info->num_gals_in_buffer))); // Calloced because initially no galaxies in buffer.
+    save_info->num_gals_in_buffer = calloc(run_params->NOUT, sizeof(save_info->num_gals_in_buffer[0])); // Calloced because initially no galaxies in buffer.
     
     CHECK_POINTER_AND_RETURN_ON_NULL(save_info->num_gals_in_buffer,
                                      "Failed to allocate %d elements of size %zu for save_info->num_gals_in_buffer", run_params->NOUT,
-                                     sizeof(*(save_info->num_gals_in_buffer)));
-
-    save_info->buffer_output_gals = malloc(run_params->NOUT * sizeof(struct HDF5_GALAXY_OUTPUT));
+                                     sizeof(save_info->num_gals_in_buffer[0]));
+    
+    save_info->buffer_output_gals = malloc(run_params->NOUT * sizeof(save_info->buffer_output_gals[0]));
     
     CHECK_POINTER_AND_RETURN_ON_NULL(save_info->buffer_output_gals,
                                      "Failed to allocate %d elements of size %zu for save_info->buffer_output_gals", run_params->NOUT,
-                                     sizeof(struct HDF5_GALAXY_OUTPUT));
+                                     sizeof(save_info->buffer_output_gals[0]));
 
     // Now we need to malloc all the arrays **inside** the GALAXY_OUTPUT struct.
     for(int32_t snap_idx = 0; snap_idx < run_params->NOUT; snap_idx++) {
@@ -398,7 +389,7 @@ int32_t save_hdf5_galaxies(const int64_t task_forestnr, const int32_t num_gals, 
 
         // Check to see if we need to write.
         if(save_info->num_gals_in_buffer[snap_idx] == save_info->buffer_size) {
-            status = trigger_buffer_write(snap_idx, save_info->buffer_size, save_info->tot_ngals[snap_idx], save_info);
+            status = trigger_buffer_write(snap_idx, save_info->buffer_size, save_info->tot_ngals[snap_idx], save_info, run_params);
             if(status != EXIT_SUCCESS) {
                 return status;
             }
@@ -421,7 +412,7 @@ int32_t finalize_hdf5_galaxy_files(const struct forest_info *forest_info, struct
 
         if(num_gals_to_write > 0) {
             herr_t h5_status = trigger_buffer_write(snap_idx, num_gals_to_write,
-                                             save_info->tot_ngals[snap_idx], save_info);
+                                                    save_info->tot_ngals[snap_idx], save_info, run_params);
             if(h5_status != EXIT_SUCCESS) {
                 return h5_status;
             }
@@ -511,19 +502,9 @@ int32_t finalize_hdf5_galaxy_files(const struct forest_info *forest_info, struct
                                     "Failed to close the Header group."
                                     "The group ID was %d.\n", (int32_t) group_id);
 
-    // Now we need to ensure we free all of the HDF5 IDs.  The heirachy is File->Groups->Datasets.
+    // Now we need to ensure we free all of the HDF5 IDs.  The hierachy is File->Groups->Datasets.
     for(int32_t snap_idx = 0; snap_idx < run_params->NOUT; snap_idx++) {
-
-        // For each snapshot, close the datasets for each field.
-        for(int32_t field_idx = 0; field_idx < save_info->num_output_fields; ++field_idx) {
-            status = H5Dclose(save_info->dataset_ids[snap_idx][field_idx]);
-            CHECK_STATUS_AND_RETURN_ON_FAIL(status, (int32_t) status,
-                                            "Failed to close field number %d for output snapshot number %d\n"
-                                            "The dataset ID was %d\n", field_idx, snap_idx,
-                                            (int32_t) save_info->dataset_ids[snap_idx][field_idx]);
-        }
-
-        // Then the group.
+        // Then close the group.
         status = H5Gclose(save_info->group_ids[snap_idx]);
         CHECK_STATUS_AND_RETURN_ON_FAIL(status, (int32_t) status,
                                         "Failed to close the group for output snapshot number %d\n"
@@ -536,11 +517,6 @@ int32_t finalize_hdf5_galaxy_files(const struct forest_info *forest_info, struct
                                     "Failed to close the HDF5 file.\nThe file ID was %d\n",
                                     (int32_t) save_info->file_id);
 
-    // Then the memory for the IDs.
-    for(int32_t snap_idx = 0; snap_idx < run_params->NOUT; snap_idx++) {
-        free(save_info->dataset_ids[snap_idx]);
-    }
-    free(save_info->dataset_ids);
     free(save_info->group_ids);
     
     for(int32_t i=0;i<save_info->num_output_fields;i++) {
@@ -640,8 +616,7 @@ int32_t create_hdf5_master_file(const struct params *run_params)
     // We will keep track of how many galaxies were saved across all files per snapshot.
     // We do this for each snapshot in the simulation, not only those that are output, to allow easy
     // checking of which snapshots were output.
-    int64_t *ngals_allfiles_snap;
-    ngals_allfiles_snap = calloc(run_params->MAXSNAPS, sizeof(*(ngals_allfiles_snap))); // Calloced because initially no galaxies.
+    int64_t *ngals_allfiles_snap = calloc(run_params->MAXSNAPS, sizeof(*(ngals_allfiles_snap))); // Calloced because initially no galaxies.
     CHECK_POINTER_AND_RETURN_ON_NULL(ngals_allfiles_snap,
                                      "Failed to allocate %d elements of size %zu for ngals_allfiles_snaps.", run_params->MAXSNAPS,
                                      sizeof(*(ngals_allfiles_snap)));
@@ -925,6 +900,12 @@ int32_t prepare_galaxy_for_hdf5_output(struct GALAXY *g, struct save_info *save_
     return EXIT_SUCCESS;
 }
 
+
+/*MS: 23/9/2019 Yes, there appears to be a NULL pointer dereference in the 'SIZEOF_STRUCT_FIELD' but
+  the expression is a compile time constant and there is no invalid memory access. That said, C really shouold
+ not allow such constructs! */
+#define SIZEOF_STRUCT_FIELD(field)    (sizeof(((struct HDF5_GALAXY_OUTPUT *) NULL)->field[0]))
+
 // We created the datasets (e.g., "Snap_43/StellarMass") with 'infinite' dimensions.
 // Before we write, we must extend the current dimensions to account for the new values.
 // The basic flow for this is:
@@ -933,76 +914,80 @@ int32_t prepare_galaxy_for_hdf5_output(struct GALAXY *g, struct save_info *save_
 // -> Create a dataspace that will hold the data -> Write the data to the group using the new spaces.
 // Please refer to the HDF5 documentation for comprehensive explanations. I've probably butchered this...
 
-/*MS: 23/9/2019 Yes, there appears to be a NULL pointer dereference but the expression
- is a compile time constant and there is no invalid memory access. That said, C really shouold
- not allow such constructs! */
-#define SIZEOF_STRUCT_FIELD(field)    (sizeof(((struct HDF5_GALAXY_OUTPUT *) NULL)->field[0]))
-#define EXTEND_AND_WRITE_GALAXY_DATASET(field_name) {              \
-    hid_t dataset_id = save_info->dataset_ids[snap_idx][field_idx]; \
-    if(dataset_id < 0) {                          \
-        fprintf(stderr, "Could not access the " #field_name" dataset for output snapshot %d.\n", snap_idx);\
-        return (int32_t) dataset_id;              \
-    }                                             \
-    hid_t h5_dtype = H5Dget_type(dataset_id);     \
-    if(SIZEOF_STRUCT_FIELD(field_name) != H5Tget_size(h5_dtype)) {             \
-        fprintf(stderr,"Error while writing field " #field_name"\n"); \
+/* Assumes 'snap_idx', 'field_idx' are set appropriately before invoking the macro */
+#define EXTEND_AND_WRITE_GALAXY_DATASET(field_name) {                   \
+    char full_field_name[MAX_STRING_LEN];                           \
+    snprintf(full_field_name, MAX_STRING_LEN - 1,"Snap_%d/%s", run_params->ListOutputSnaps[snap_idx], save_info->name_output_fields[field_idx]); \
+    hid_t dataset_id = H5Dopen2(save_info->file_id, full_field_name, H5P_DEFAULT); \
+    if(dataset_id < 0) {                                                \
+        fprintf(stderr, "Could not access the " #field_name" dataset for output snapshot %d.\n", snap_idx); \
+        return (int32_t) dataset_id;                                    \
+    }                                                                   \
+    hid_t h5_dtype = H5Dget_type(dataset_id);                           \
+    if(SIZEOF_STRUCT_FIELD(field_name) != H5Tget_size(h5_dtype)) {      \
+        fprintf(stderr,"Error while writing field " #field_name"\n");   \
         fprintf(stderr,"The HDF5 dataset has size %zu bytes but the struct element has size = %zu bytes\n", \
-                H5Tget_size(h5_dtype), SIZEOF_STRUCT_FIELD(field_name));       \
+                H5Tget_size(h5_dtype), SIZEOF_STRUCT_FIELD(field_name)); \
         fprintf(stderr,"Perhaps the size of the struct item needs to be updated?\n"); \
         return -1;                                                      \
     }                                                                   \
-    status = H5Dset_extent(dataset_id, new_dims);     \
-    if(status < 0) {                              \
+    status = H5Dset_extent(dataset_id, new_dims);                       \
+    if(status < 0) {                                                    \
         fprintf(stderr, "Could not resize the dimensions of the " #field_name" dataset for output snapshot %d.\n" \
                 "The dataset ID value is %d. The new dimension values were %d\n", \
-                snap_idx, (int32_t) dataset_id, (int32_t) new_dims[0]);             \
-        return (int32_t) status;                  \
-    }                                             \
-    hid_t filespace = H5Dget_space(dataset_id);   \
-    if(filespace < 0) {                           \
+                snap_idx, (int32_t) dataset_id, (int32_t) new_dims[0]); \
+        return (int32_t) status;                                        \
+    }                                                                   \
+    hid_t filespace = H5Dget_space(dataset_id);                         \
+    if(filespace < 0) {                                                 \
         fprintf(stderr, "Could not retrieve the dataspace of the " #field_name" dataset for output snapshot %d.\n" \
-                        "The dataset ID value is %d.\n", snap_idx, (int32_t) dataset_id); \
-        return (int32_t) filespace;               \
-    }                                             \
+                "The dataset ID value is %d.\n", snap_idx, (int32_t) dataset_id); \
+        return (int32_t) filespace;                                     \
+    }                                                                   \
     status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, old_dims, NULL, dims_extend, NULL); \
-    if(status < 0) {                              \
+    if(status < 0) {                                                    \
         fprintf(stderr, "Could not select a hyperslab region to add to the filespace of the " #field_name" dataset for output snapshot %d.\n" \
-                        "The dataset ID value is %d.\n" \
-                        "The old dimensions were %d and we attempted to extend this by %d elements.\n", snap_idx, (int32_t) dataset_id, \
-                        (int32_t) old_dims[0], (int32_t) dims_extend[0]); \
-        return (int32_t) status;                  \
-    }                                             \
-    hid_t memspace = H5Screate_simple(1, dims_extend, NULL); \
-    if(memspace < 0) {                            \
+                "The dataset ID value is %d.\n"                         \
+                "The old dimensions were %d and we attempted to extend this by %d elements.\n", snap_idx, (int32_t) dataset_id, \
+                (int32_t) old_dims[0], (int32_t) dims_extend[0]);       \
+        return (int32_t) status;                                        \
+    }                                                                   \
+    hid_t memspace = H5Screate_simple(1, dims_extend, NULL);            \
+    if(memspace < 0) {                                                  \
         fprintf(stderr, "Could not create a new dataspace for the " #field_name" dataset for output snapshot %d.\n" \
-                        "The length of the dataspace we attempted to created was %d.\n", snap_idx, (int32_t) dims_extend[0]); \
-        return (int32_t) memspace;                \
-    }                                             \
+                "The length of the dataspace we attempted to created was %d.\n", snap_idx, (int32_t) dims_extend[0]); \
+        return (int32_t) memspace;                                      \
+    }                                                                   \
     status = H5Dwrite(dataset_id, h5_dtype, memspace, filespace, H5P_DEFAULT, (save_info->buffer_output_gals[snap_idx]).field_name); \
-    if(status < 0) {                              \
+    if(status < 0) {                                                    \
         fprintf(stderr, "Could not write the dataset for the " #field_name" field for output snapshot %d.\n" \
-                        "The dataset ID value is %d.\n" \
-                        "The old dimensions were %d and we attempting to extend (and write to) this by %d elements.\n" \
-                        "The HDF5 datatype was #h5_dtype.\n", snap_idx, (int32_t) dataset_id, (int32_t) old_dims[0], (int32_t) dims_extend[0]); \
-        return (int32_t) status;                  \
-    }                                             \
-    status = H5Sclose(memspace);                  \
-    if(status < 0) {                              \
+                "The dataset ID value is %d.\n"                         \
+                "The old dimensions were %d and we attempting to extend (and write to) this by %d elements.\n" \
+                "The HDF5 datatype was #h5_dtype.\n", snap_idx, (int32_t) dataset_id, (int32_t) old_dims[0], (int32_t) dims_extend[0]); \
+        return (int32_t) status;                                        \
+    }                                                                   \
+    status = H5Sclose(memspace);                                        \
+    if(status < 0) {                                                    \
         fprintf(stderr, "Could not close the memory space for the " #field_name" dataset for output snapshot %d.\n" \
-                        "The dataset ID value is %d.\n" \
-                        "The old dimensions were %d and we attempting to extend this by %d elements.\n", \
-                        snap_idx, (int32_t) dataset_id, (int32_t) old_dims[0], (int32_t) dims_extend[0]); \
-        return (int32_t) status;                  \
-    }                                             \
-    field_idx++;                                  \
+                "The dataset ID value is %d.\n"                         \
+                "The old dimensions were %d and we attempting to extend this by %d elements.\n", \
+                snap_idx, (int32_t) dataset_id, (int32_t) old_dims[0], (int32_t) dims_extend[0]); \
+        return (int32_t) status;                                        \
+    }                                                                   \
+    status = H5Dclose(dataset_id);                                      \
+    CHECK_STATUS_AND_RETURN_ON_FAIL(status, (int32_t) status,           \
+                                    "Failed to close field number %d for output snapshot number %d\n" \
+                                    "The dataset ID was %d\n", field_idx, snap_idx, \
+                                    (int32_t) dataset_id);              \
+    field_idx++;                                                        \
 }
 
 
 // Extend the length of each dataset in our file and write the data to it.
 // We have to specify the number of items to write `num_to_write` because this function is called
 // both when we reach the buffer limit and during finalization where we write the remaining galaxies.
-int32_t trigger_buffer_write(int32_t snap_idx, int32_t num_to_write, int64_t num_already_written,
-                             struct save_info *save_info)
+int32_t trigger_buffer_write(const int32_t snap_idx, const int32_t num_to_write, const int64_t num_already_written,
+                             struct save_info *save_info, const struct params *run_params)
 {
     herr_t status;
 
@@ -1026,7 +1011,7 @@ int32_t trigger_buffer_write(int32_t snap_idx, int32_t num_to_write, int64_t num
     // This parameter is incremented in every Macro call. It is used to ensure we are
     // accessing the correct dataset.
     int32_t field_idx = 0;
-
+    
     // We now need to write each property to file.  This is performed in a stack of macros because
     // it's not possible to loop through the members of a struct.
     EXTEND_AND_WRITE_GALAXY_DATASET(SnapNum);

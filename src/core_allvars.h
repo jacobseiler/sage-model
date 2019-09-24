@@ -256,7 +256,6 @@ struct save_info {
     hid_t *group_ids;
 
     int32_t num_output_fields;
-    hid_t **dataset_ids;
 
     int32_t buffer_size;
     int32_t *num_gals_in_buffer;

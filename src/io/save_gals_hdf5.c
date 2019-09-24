@@ -38,27 +38,32 @@ static int32_t write_header(hid_t file_id, const struct forest_info *forest_info
 // single number or a string.
 /* MS: 17/9/2019 -- the group_id has already been checked and should be valid at this point */
 #define CREATE_SINGLE_ATTRIBUTE(group_id, attribute_name, attribute_value, h5_dtype) { \
-    hid_t macro_dataspace_id = H5Screate(H5S_SCALAR);                 \
-    CHECK_STATUS_AND_RETURN_ON_FAIL(macro_dataspace_id, (int32_t) macro_dataspace_id, \
-                                    "Could not create an attribute dataspace.\n" \
-                                    "The attribute we wanted to create was '" #attribute_name"' and the HDF5 datatype was '" #h5_dtype".\n"); \
-    hid_t macro_attribute_id = H5Acreate(group_id, attribute_name, h5_dtype, macro_dataspace_id, H5P_DEFAULT, H5P_DEFAULT); \
-    CHECK_STATUS_AND_RETURN_ON_FAIL(macro_attribute_id, (int32_t) macro_attribute_Id,    \
-                                    "Could not create an attribute ID.\n"                \
-                                    "The attribute we wanted to create was '" #attribute_name"' and the HDF5 datatype was '" #h5_dtype".\n"); \
-    herr_t status = H5Awrite(macro_attribute_id, h5_dtype, attribute_value); \
-    CHECK_STATUS_AND_RETURN_ON_FAIL(status, (int32_t) status,           \
-                                    "Could not write an attribute.\n"                    \
-                                    "The attribute we wanted to create was '" #attribute_name"' and the HDF5 datatype was '" #h5_dtype".\n"); \
-    status = H5Aclose(macro_attribute_id);                            \
-    CHECK_STATUS_AND_RETURN_ON_FAIL(status, (int32_t) status,                            \
-                                    "Could not close an attribute ID.\n"                 \
-                                    "The attribute we wanted to create was '" #attribute_name"' and the HDF5 datatype was '" #h5_dtype".\n"); \
-    status = H5Sclose(macro_dataspace_id);                            \
-    CHECK_STATUS_AND_RETURN_ON_FAIL(status, (int32_t) status,           \
+        hid_t macro_dataspace_id = H5Screate(H5S_SCALAR);               \
+        CHECK_STATUS_AND_RETURN_ON_FAIL(macro_dataspace_id, (int32_t) macro_dataspace_id, \
+                                        "Could not create an attribute dataspace.\n" \
+                                        "The attribute we wanted to create was '" #attribute_name"' and the HDF5 datatype was '" #h5_dtype".\n"); \
+        if(sizeof(attribute_value) != H5Tget_size(h5_dtype)) {    \
+            fprintf(stderr,"Error: attribute " #attribute_name" the C size = %zu does not match the hdf5 datatype size=%zu\n", \
+                    sizeof(attribute_value), H5Tget_size(h5_dtype));    \
+            return -1;                                                  \
+        }                                                               \
+        hid_t macro_attribute_id = H5Acreate(group_id, attribute_name, h5_dtype, macro_dataspace_id, H5P_DEFAULT, H5P_DEFAULT); \
+        CHECK_STATUS_AND_RETURN_ON_FAIL(macro_attribute_id, (int32_t) macro_attribute_Id, \
+                                        "Could not create an attribute ID.\n" \
+                                        "The attribute we wanted to create was '" #attribute_name"' and the HDF5 datatype was '" #h5_dtype".\n"); \
+        herr_t status = H5Awrite(macro_attribute_id, h5_dtype, &(attribute_value)); \
+        CHECK_STATUS_AND_RETURN_ON_FAIL(status, (int32_t) status,       \
+                                        "Could not write an attribute.\n" \
+                                        "The attribute we wanted to create was '" #attribute_name"' and the HDF5 datatype was '" #h5_dtype".\n"); \
+        status = H5Aclose(macro_attribute_id);                          \
+        CHECK_STATUS_AND_RETURN_ON_FAIL(status, (int32_t) status,       \
+                                        "Could not close an attribute ID.\n" \
+                                        "The attribute we wanted to create was '" #attribute_name"' and the HDF5 datatype was '" #h5_dtype".\n"); \
+        status = H5Sclose(macro_dataspace_id);                          \
+        CHECK_STATUS_AND_RETURN_ON_FAIL(status, (int32_t) status,       \
                                     "Could not close an attribute dataspace.\n" \
-                                    "The attribute we wanted to create was '" #attribute_name"' and the HDF5 datatype was '" #h5_dtype".\n"); \
-}
+                                        "The attribute we wanted to create was '" #attribute_name"' and the HDF5 datatype was '" #h5_dtype".\n"); \
+    }
 
 #define CREATE_STRING_ATTRIBUTE(group_id, attribute_name, attribute_value, stringlen) { \
     hid_t macro_dataspace_id = H5Screate(H5S_SCALAR);                   \
@@ -101,7 +106,8 @@ static int32_t write_header(hid_t file_id, const struct forest_info *forest_info
 
 #define CREATE_AND_WRITE_DATASET(file_id, field_name, dims, data, h5_dtype, C_size) { \
         if(C_size != H5Tget_size(h5_dtype)) {                           \
-            fprintf(stderr,"Error: For field '%s', the C size = %zu does not match the hdf5 datatype size=%zu\n", field_name, C_size,  H5Tget_size(h5_dtype)); \
+            fprintf(stderr,"Error: For field " #field_name", the C size = %zu does not match the hdf5 datatype size=%zu\n", \
+                    C_size,  H5Tget_size(h5_dtype));                    \
             return -1;                                                  \
         }                                                               \
         hid_t macro_dataspace_id = H5Screate_simple(1, dims, NULL);     \
@@ -235,7 +241,7 @@ int32_t initialize_hdf5_galaxy_files(const int filenr, struct save_info *save_in
         save_info->group_ids[snap_idx] = group_id;
 
         const float redshift = run_params->ZZ[run_params->ListOutputSnaps[snap_idx]];
-        CREATE_SINGLE_ATTRIBUTE(group_id, "redshift", &redshift, H5T_NATIVE_FLOAT);
+        CREATE_SINGLE_ATTRIBUTE(group_id, "redshift", redshift, H5T_NATIVE_FLOAT);
 
         for(int32_t field_idx = 0; field_idx < NUM_OUTPUT_FIELDS; field_idx++) {
 
@@ -436,7 +442,7 @@ int32_t finalize_hdf5_galaxy_files(const struct forest_info *forest_info, struct
         }
 
         // Write attributes showing how many galaxies we wrote for this snapshot.
-        CREATE_SINGLE_ATTRIBUTE(save_info->group_ids[snap_idx], "num_gals", &save_info->tot_ngals[snap_idx], H5T_NATIVE_INT);
+        CREATE_SINGLE_ATTRIBUTE(save_info->group_ids[snap_idx], "num_gals", save_info->tot_ngals[snap_idx], H5T_NATIVE_INT);
 
         // Attributes can only be 64kb in size (strict rule enforced by the HDF5 group).
         // For larger simulations, we will have so many trees, that the number of galaxies per tree
@@ -1109,23 +1115,23 @@ int32_t write_header(hid_t file_id, const struct forest_info *forest_info, const
     // Simulation information.
     CREATE_STRING_ATTRIBUTE(sim_group_id, "SimulationDir", &run_params->SimulationDir, strlen(run_params->SimulationDir));
     CREATE_STRING_ATTRIBUTE(sim_group_id, "FileWithSnapList", &run_params->FileWithSnapList, strlen(run_params->FileWithSnapList));
-    CREATE_SINGLE_ATTRIBUTE(sim_group_id, "LastSnapShotNr", &run_params->LastSnapShotNr, H5T_NATIVE_INT);
+    CREATE_SINGLE_ATTRIBUTE(sim_group_id, "LastSnapShotNr", run_params->LastSnapShotNr, H5T_NATIVE_INT);
 
-    CREATE_SINGLE_ATTRIBUTE(sim_group_id, "omega_matter", &run_params->Omega, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(sim_group_id, "omega_lambda", &run_params->OmegaLambda, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(sim_group_id, "particle_mass", &run_params->PartMass, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(sim_group_id, "hubble_h", &run_params->Hubble_h, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(sim_group_id, "num_simulation_tree_files", &run_params->NumSimulationTreeFiles, H5T_NATIVE_INT);
-    CREATE_SINGLE_ATTRIBUTE(sim_group_id, "box_size", &run_params->BoxSize, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(sim_group_id, "omega_matter", run_params->Omega, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(sim_group_id, "omega_lambda", run_params->OmegaLambda, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(sim_group_id, "particle_mass", run_params->PartMass, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(sim_group_id, "hubble_h", run_params->Hubble_h, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(sim_group_id, "num_simulation_tree_files", run_params->NumSimulationTreeFiles, H5T_NATIVE_INT);
+    CREATE_SINGLE_ATTRIBUTE(sim_group_id, "box_size", run_params->BoxSize, H5T_NATIVE_DOUBLE);
 
     // If we're writing the header attributes for the master file, we don't have knowledge of trees.
     if(forest_info != NULL) {
-        CREATE_SINGLE_ATTRIBUTE(sim_group_id, "num_trees", &forest_info->nforests_this_task, H5T_NATIVE_LLONG);
-        CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "frac_volume_processed", &forest_info->frac_volume_processed, H5T_NATIVE_FLOAT);
+        CREATE_SINGLE_ATTRIBUTE(sim_group_id, "num_trees", forest_info->nforests_this_task, H5T_NATIVE_LLONG);
+        CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "frac_volume_processed", forest_info->frac_volume_processed, H5T_NATIVE_DOUBLE);
     }
 
     // Data and version information.
-    CREATE_SINGLE_ATTRIBUTE(misc_group_id, "num_cores", &run_params->NTasks, H5T_NATIVE_INT);
+    CREATE_SINGLE_ATTRIBUTE(misc_group_id, "num_cores", run_params->NTasks, H5T_NATIVE_INT);
     CREATE_STRING_ATTRIBUTE(misc_group_id, "sage_data_version", &SAGE_DATA_VERSION, strlen(SAGE_DATA_VERSION));
     CREATE_STRING_ATTRIBUTE(misc_group_id, "sage_version", &SAGE_VERSION, strlen(SAGE_VERSION));
     CREATE_STRING_ATTRIBUTE(misc_group_id, "git_SHA_reference", &GITREF_STR, strlen(GITREF_STR));
@@ -1133,38 +1139,38 @@ int32_t write_header(hid_t file_id, const struct forest_info *forest_info, const
     // Output file info.
     CREATE_STRING_ATTRIBUTE(runtime_group_id, "FileNameGalaxies", &run_params->FileNameGalaxies, strlen(run_params->FileNameGalaxies));
     CREATE_STRING_ATTRIBUTE(runtime_group_id, "OutputDir", &run_params->OutputDir, strlen(run_params->OutputDir));
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "FirstFile", &run_params->FirstFile, H5T_NATIVE_INT);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "LastFile", &run_params->LastFile, H5T_NATIVE_INT);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "FirstFile", run_params->FirstFile, H5T_NATIVE_INT);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "LastFile", run_params->LastFile, H5T_NATIVE_INT);
 
     // Recipe flags.
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "SFprescription", &run_params->SFprescription, H5T_NATIVE_INT);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "AGNrecipeOn", &run_params->AGNrecipeOn, H5T_NATIVE_INT);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "SupernovaRecipeOn", &run_params->SupernovaRecipeOn, H5T_NATIVE_INT);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "ReionizationOn", &run_params->ReionizationOn, H5T_NATIVE_INT);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "DiskInstabilityOn", &run_params->DiskInstabilityOn, H5T_NATIVE_INT);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "SFprescription", run_params->SFprescription, H5T_NATIVE_INT);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "AGNrecipeOn", run_params->AGNrecipeOn, H5T_NATIVE_INT);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "SupernovaRecipeOn", run_params->SupernovaRecipeOn, H5T_NATIVE_INT);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "ReionizationOn", run_params->ReionizationOn, H5T_NATIVE_INT);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "DiskInstabilityOn", run_params->DiskInstabilityOn, H5T_NATIVE_INT);
 
     // Model parameters.
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "SfrEfficiency", &run_params->SfrEfficiency, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "FeedbackReheatingEpsilon", &run_params->FeedbackReheatingEpsilon, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "FeedbackEjectionEfficiency", &run_params->FeedbackEjectionEfficiency, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "ReIncorporationFactor", &run_params->ReIncorporationFactor, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "RadioModeEfficiency", &run_params->RadioModeEfficiency, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "QuasarModeEfficiency", &run_params->QuasarModeEfficiency, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "BlackHoleGrowthRate", &run_params->BlackHoleGrowthRate, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "ThreshMajorMerger", &run_params->ThreshMajorMerger, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "ThresholdSatDisruption", &run_params->ThresholdSatDisruption, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "Yield", &run_params->Yield, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "RecycleFraction", &run_params->RecycleFraction, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "FracZleaveDisk", &run_params->FracZleaveDisk, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "Reionization_z0", &run_params->Reionization_z0, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "Reionization_zr", &run_params->Reionization_zr, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "EnergySN", &run_params->EnergySN, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "EtaSN", &run_params->EtaSN, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "SfrEfficiency", run_params->SfrEfficiency, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "FeedbackReheatingEpsilon", run_params->FeedbackReheatingEpsilon, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "FeedbackEjectionEfficiency", run_params->FeedbackEjectionEfficiency, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "ReIncorporationFactor", run_params->ReIncorporationFactor, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "RadioModeEfficiency", run_params->RadioModeEfficiency, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "QuasarModeEfficiency", run_params->QuasarModeEfficiency, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "BlackHoleGrowthRate", run_params->BlackHoleGrowthRate, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "ThreshMajorMerger", run_params->ThreshMajorMerger, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "ThresholdSatDisruption", run_params->ThresholdSatDisruption, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "Yield", run_params->Yield, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "RecycleFraction", run_params->RecycleFraction, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "FracZleaveDisk", run_params->FracZleaveDisk, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "Reionization_z0", run_params->Reionization_z0, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "Reionization_zr", run_params->Reionization_zr, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "EnergySN", run_params->EnergySN, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "EtaSN", run_params->EtaSN, H5T_NATIVE_DOUBLE);
 
     // Misc runtime Parameters.
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "UnitLength_in_cm", &run_params->UnitLength_in_cm, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "UnitMass_in_g", &run_params->UnitMass_in_g, H5T_NATIVE_DOUBLE);
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "UnitVelocity_in_cm_per_s", &run_params->UnitVelocity_in_cm_per_s, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "UnitLength_in_cm", run_params->UnitLength_in_cm, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "UnitMass_in_g", run_params->UnitMass_in_g, H5T_NATIVE_DOUBLE);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "UnitVelocity_in_cm_per_s", run_params->UnitVelocity_in_cm_per_s, H5T_NATIVE_DOUBLE);
 
     // Redshift at each snapshot.
     hsize_t dims[1];
@@ -1177,7 +1183,7 @@ int32_t write_header(hid_t file_id, const struct forest_info *forest_info, const
 
     CREATE_AND_WRITE_DATASET(file_id, "Header/output_snapshots", dims, run_params->ListOutputSnaps, H5T_NATIVE_INT, sizeof(run_params->ListOutputSnaps[0]));
 
-    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "NumOutputs", &run_params->MAXSNAPS, H5T_NATIVE_INT);
+    CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "NumOutputs", run_params->MAXSNAPS, H5T_NATIVE_INT);
 
     herr_t status = H5Gclose(sim_group_id);
     CHECK_STATUS_AND_RETURN_ON_FAIL(status, (int32_t) status,

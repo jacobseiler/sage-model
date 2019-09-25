@@ -435,6 +435,8 @@ int32_t finalize_hdf5_galaxy_files(const struct forest_info *forest_info, struct
         // Write attributes showing how many galaxies we wrote for this snapshot.
         CREATE_SINGLE_ATTRIBUTE(save_info->group_ids[snap_idx], "num_gals", save_info->tot_ngals[snap_idx], H5T_NATIVE_INT);
 
+#if 0
+        
         // Attributes can only be 64kb in size (strict rule enforced by the HDF5 group).
         // For larger simulations, we will have so many trees, that the number of galaxies per tree
         // array (`save_info->forest_ngals`) will exceed 64kb.  Hence we will write this data to a
@@ -443,7 +445,7 @@ int32_t finalize_hdf5_galaxy_files(const struct forest_info *forest_info, struct
         char description[MAX_STRING_LEN];
         char unit[MAX_STRING_LEN];
 
-        snprintf(field_name, MAX_STRING_LEN -  1, "Snap_%d/NumGalsPerTree", run_params->ListOutputSnaps[snap_idx]);
+        snprintf(field_name, MAX_STRING_LEN -  1, "TreeInfo/Snap_%d/NumGalsPerTree", run_params->ListOutputSnaps[snap_idx]);
         snprintf(description, MAX_STRING_LEN -  1, "The number of galaxies per tree.");
         snprintf(unit, MAX_STRING_LEN-  1, "Unitless");
 
@@ -482,6 +484,8 @@ int32_t finalize_hdf5_galaxy_files(const struct forest_info *forest_info, struct
                                         "The dimensions of the dataset was %d\nThe file ID was %d\n."
                                         "The dataset ID was %d.", (int32_t) dims[0], (int32_t) save_info->file_id,
                                         (int32_t) dataset_id);
+#endif
+        
     }
 
     // Finally let's write some header attributes here.
@@ -502,6 +506,22 @@ int32_t finalize_hdf5_galaxy_files(const struct forest_info *forest_info, struct
                                     "Failed to close the Header group."
                                     "The group ID was %d.\n", (int32_t) group_id);
 
+
+    group_id = H5Gcreate(save_info->file_id, "/TreeInfo", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    CHECK_STATUS_AND_RETURN_ON_FAIL(group_id, (int32_t) group_id,
+                                    "Failed to create the TreeInfo group.\nThe file ID was %d\n",
+                                    (int32_t) save_info->file_id);
+    
+    /* Now write out the NumGalsPerTree */
+    /* write_out_numgals-per_tree_here -> placeholder */
+
+    
+    status = H5Gclose(group_id);
+    CHECK_STATUS_AND_RETURN_ON_FAIL(status, (int32_t) status,
+                                    "Failed to close the Header group."
+                                    "The group ID was %d.\n", (int32_t) group_id);
+
+    
     // Now we need to ensure we free all of the HDF5 IDs.  The hierachy is File->Groups->Datasets.
     for(int32_t snap_idx = 0; snap_idx < run_params->NOUT; snap_idx++) {
         // Then close the group.

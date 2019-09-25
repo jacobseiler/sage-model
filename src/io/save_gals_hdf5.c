@@ -1111,8 +1111,14 @@ int32_t write_header(hid_t file_id, const struct forest_info *forest_info, const
 
     // If we're writing the header attributes for the master file, we don't have knowledge of trees.
     if(forest_info != NULL) {
-        CREATE_SINGLE_ATTRIBUTE(sim_group_id, "num_trees", forest_info->nforests_this_task, H5T_NATIVE_LLONG);
+        CREATE_SINGLE_ATTRIBUTE(sim_group_id, "num_trees_this_file", forest_info->nforests_this_task, H5T_NATIVE_LLONG);
         CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "frac_volume_processed", forest_info->frac_volume_processed, H5T_NATIVE_DOUBLE);
+    } else {
+        const long long nforests_on_master_file = 0;
+        CREATE_SINGLE_ATTRIBUTE(sim_group_id, "num_trees_this_file", nforests_on_master_file, H5T_NATIVE_LLONG);
+
+        const double frac_volume_on_master = (run_params->LastFile - run_params->FirstFile + 1)/(double) run_params->NumSimulationTreeFiles;
+        CREATE_SINGLE_ATTRIBUTE(runtime_group_id, "frac_volume_processed", frac_volume_on_master, H5T_NATIVE_DOUBLE);
     }
 
     // Data and version information.

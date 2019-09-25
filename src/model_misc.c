@@ -8,7 +8,7 @@
 
 #include "model_misc.h"
 
-void init_galaxy(const int p, const int halonr, int *galaxycounter, struct halo_data *halos,
+void init_galaxy(const int p, const int halonr, int *galaxycounter, const struct halo_data *halos,
                  struct GALAXY *galaxies, const struct params *run_params)
 {
 
@@ -87,7 +87,7 @@ void init_galaxy(const int p, const int halonr, int *galaxycounter, struct halo_
 
 
 
-double get_disk_radius(const int halonr, const int p, struct halo_data *halos, struct GALAXY *galaxies)
+double get_disk_radius(const int halonr, const int p, const struct halo_data *halos, const struct GALAXY *galaxies)
 {
 	if(galaxies[p].Vvir > 0.0 && galaxies[p].Rvir > 0.0) {
 		// See Mo, Shude & White (1998) eq12, and using a Bullock style lambda.
@@ -125,7 +125,7 @@ double dmax(const double x, const double y)
 
 
 
-double get_virial_mass(const int halonr, struct halo_data *halos, const struct params *run_params)
+double get_virial_mass(const int halonr, const struct halo_data *halos, const struct params *run_params)
 {
   if(halonr == halos[halonr].FirstHaloInFOFgroup && halos[halonr].Mvir >= 0.0)
     return halos[halonr].Mvir;   /* take spherical overdensity mass estimate */
@@ -135,7 +135,7 @@ double get_virial_mass(const int halonr, struct halo_data *halos, const struct p
 
 
 
-double get_virial_velocity(const int halonr, struct halo_data *halos, const struct params *run_params)
+double get_virial_velocity(const int halonr, const struct halo_data *halos, const struct params *run_params)
 {
 	double Rvir;
 
@@ -148,7 +148,7 @@ double get_virial_velocity(const int halonr, struct halo_data *halos, const stru
 }
 
 
-double get_virial_radius(const int halonr, struct halo_data *halos, const struct params *run_params)
+double get_virial_radius(const int halonr, const struct halo_data *halos, const struct params *run_params)
 {
   // return halos[halonr].Rvir;  // Used for Bolshoi
   const int snapnum = halos[halonr].SnapNum;

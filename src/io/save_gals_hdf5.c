@@ -20,8 +20,8 @@
 static int32_t generate_field_metadata(char (*field_names)[MAX_STRING_LEN], char (*field_descriptions)[MAX_STRING_LEN],
                                        char (*field_units)[MAX_STRING_LEN], hsize_t *field_dtypes);
 
-static int32_t prepare_galaxy_for_hdf5_output(struct GALAXY *g, struct save_info *save_info,
-                                              int32_t output_snap_idx,  struct halo_data *halos,
+static int32_t prepare_galaxy_for_hdf5_output(const struct GALAXY *g, struct save_info *save_info,
+                                              const int32_t output_snap_idx,  const struct halo_data *halos,
                                               const int64_t task_forestnr,
                                               const int64_t original_treenr,
                                               const struct params *run_params);
@@ -774,8 +774,8 @@ int32_t generate_field_metadata(char (*field_names)[MAX_STRING_LEN], char (*fiel
 
 // Take all the properties of the galaxy `*g` and add them to the buffered galaxies
 // properties `save_info->buffer_output_gals`.
-int32_t prepare_galaxy_for_hdf5_output(struct GALAXY *g, struct save_info *save_info,
-                                       int32_t output_snap_idx,  struct halo_data *halos,
+int32_t prepare_galaxy_for_hdf5_output(const struct GALAXY *g, struct save_info *save_info,
+                                       const int32_t output_snap_idx,  const struct halo_data *halos,
                                        const int64_t task_forestnr,
                                        const int64_t original_treenr,
                                        const struct params *run_params)

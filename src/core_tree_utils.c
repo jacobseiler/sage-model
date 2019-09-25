@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <assert.h>
 #include <limits.h>
 
 #include "core_tree_utils.h"
@@ -129,7 +128,9 @@ int reorder_lhalo_to_lhvt(const int32_t nhalos, struct halo_data *forest, int32_
                     return EXIT_FAILURE;
                 }
             } else {
-                assert(desc >= 0 && desc < nhalos);
+                XASSERT(desc >= 0 && desc < nhalos, -1,
+                        "Error: desc = %d should be in range [0, %d)",
+                        desc, nhalos);
                 if(desc_len[old_index] != forest[desc].Len) {
                     fprintf(stderr,"Error: forest[%d].Descendant (Len) = %d (desc=%d) now but old descendant contained %d particles\n",
                             i, forest[desc].Len, desc, desc_len[old_index]);
@@ -149,7 +150,9 @@ int reorder_lhalo_to_lhvt(const int32_t nhalos, struct halo_data *forest, int32_
                 if( prog < 0 || prog >= nhalos) {
                     fprintf(stderr,"WEIRD: prog = %d for i=%d is not within [0, %d)\n",prog, i, nhalos);
                 }
-                assert(prog >=0 && prog < nhalos);
+                XASSERT(prog >=0 && prog < nhalos, -1,
+                        "Error: progenitor index = %d should be in range [0, %d)\n",
+                        prog, nhalos);
                 if(prog_len[old_index] != forest[prog].Len) {
                     fprintf(stderr,"Error: forest[%d].FirstProgenitor (Len) = %d (prog=%d) now but old FirstProgenitor contained %d particles\n",
                             i, forest[prog].Len, prog, prog_len[old_index]);

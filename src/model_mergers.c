@@ -3,7 +3,6 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
-#include <assert.h>
 
 #include "core_allvars.h"
 
@@ -222,7 +221,9 @@ void collisional_starburst_recipe(const double mass_ratio, const int merger_cent
         reheated_mass = 0.0;
     }
 
-	assert(reheated_mass >= 0.0);
+	XASSERT(reheated_mass >= 0.0, -1,
+            "Error: Reheated mass = %g should be >= 0.0",
+            reheated_mass);
 
     // can't use more cold gas than is available! so balance SF and feedback
     if((stars + reheated_mass) > galaxies[merger_centralgal].ColdGas) {

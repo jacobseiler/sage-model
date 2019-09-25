@@ -3,7 +3,6 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
-#include <assert.h>
 
 #include "core_allvars.h"
 
@@ -13,7 +12,9 @@ void init_galaxy(const int p, const int halonr, int *galaxycounter, struct halo_
                  struct GALAXY *galaxies, const struct params *run_params)
 {
 
-	assert(halonr == halos[halonr].FirstHaloInFOFgroup);
+	XASSERT(halonr == halos[halonr].FirstHaloInFOFgroup, -1,
+            "Error: halonr = %d should be equal to the FirsthaloInFOFgroup = %d\n",
+            halonr, halos[halonr].FirstHaloInFOFgroup);
 
     galaxies[p].Type = 0;
 

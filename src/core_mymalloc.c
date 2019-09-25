@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <assert.h>
 
 #include "core_allvars.h"
 #include "core_mymalloc.h"
@@ -148,9 +147,11 @@ void *myrealloc(void *p, size_t n)
 
 void myfree(void *p)
 {
-	assert(Nblocks > 0);
-
     if(p == NULL) return;
+
+    XASSERT(Nblocks > 0, -1,
+            "Error: While trying to free the pointer at address = %p, "
+            "expected Nblocks = %ld to be larger than 0", p, Nblocks);
 
 #if 0
     if(p != Table[Nblocks - 1]) {

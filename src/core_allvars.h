@@ -246,7 +246,7 @@ struct save_info {
 #endif
     };
 
-    int32_t *tot_ngals; // Number of galaxies **per snapshot**.
+    int64_t *tot_ngals; // Number of galaxies **per snapshot**.
     int32_t **forest_ngals; // Number of galaxies **per snapshot** **per tree**; fores_ngals[snap][forest].
 
 #ifdef HDF5

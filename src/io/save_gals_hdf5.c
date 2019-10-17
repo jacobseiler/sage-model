@@ -163,7 +163,7 @@ static int32_t write_header(hid_t file_id, const struct forest_info *forest_info
 int32_t initialize_hdf5_galaxy_files(const int filenr, struct save_info *save_info, const struct params *run_params)
 {
     char buffer[3*MAX_STRING_LEN];
-    
+
     // Create the file.
     // Use 3*MAX_STRING_LEN because OutputDir and FileNameGalaxies can be MAX_STRING_LEN.  Add a bit more buffer for the filenr and '.hdf5'.
     snprintf(buffer, 3*MAX_STRING_LEN-1, "%s/%s_%d.hdf5", run_params->OutputDir, run_params->FileNameGalaxies, filenr);
@@ -201,7 +201,7 @@ int32_t initialize_hdf5_galaxy_files(const int filenr, struct save_info *save_in
                                      "Failed to allocate %d elements of size %zu for save_info->name_output_fields",
                                      NUM_OUTPUT_FIELDS,
                                      sizeof(save_info->field_dtypes[0]));
-    
+
     // We will have groups for each output snapshot, and then inside those groups, a dataset for
     // each field.
     save_info->group_ids = malloc(run_params->NOUT * sizeof(save_info->group_ids[0]));
@@ -234,7 +234,7 @@ int32_t initialize_hdf5_galaxy_files(const int filenr, struct save_info *save_in
 
             // Then create each field inside.
             snprintf(full_field_name, MAX_STRING_LEN - 1,"Snap_%d/%s", run_params->ListOutputSnaps[snap_idx], field_names[field_idx]);
-            
+
             /* fprintf(stderr, "Creating field '%s' with description '%s' and unit '%s'\n",
                field_names[field_idx], field_descriptions[field_idx], field_units[field_idx]); */
 
@@ -269,7 +269,7 @@ int32_t initialize_hdf5_galaxy_files(const int filenr, struct save_info *save_in
                                             "Failed to close field number %d for output snapshot number %d\n"
                                             "The dataset ID was %d\n", field_idx, snap_idx,
                                             (int32_t) dataset_id);
-            
+
             status = H5Pclose(prop);
             CHECK_STATUS_AND_RETURN_ON_FAIL(status, (int32_t) status,
                                             "Failed to close the property list for output snapshot number %d.\n", snap_idx);
@@ -286,13 +286,13 @@ int32_t initialize_hdf5_galaxy_files(const int filenr, struct save_info *save_in
     // struct instance per galaxy, here HDF5_GALAXY_OUTPUT is a **struct of arrays**.
     save_info->buffer_size = NUM_GALS_PER_BUFFER;
     save_info->num_gals_in_buffer = calloc(run_params->NOUT, sizeof(save_info->num_gals_in_buffer[0])); // Calloced because initially no galaxies in buffer.
-    
+
     CHECK_POINTER_AND_RETURN_ON_NULL(save_info->num_gals_in_buffer,
                                      "Failed to allocate %d elements of size %zu for save_info->num_gals_in_buffer", run_params->NOUT,
                                      sizeof(save_info->num_gals_in_buffer[0]));
-    
+
     save_info->buffer_output_gals = malloc(run_params->NOUT * sizeof(save_info->buffer_output_gals[0]));
-    
+
     CHECK_POINTER_AND_RETURN_ON_NULL(save_info->buffer_output_gals,
                                      "Failed to allocate %d elements of size %zu for save_info->buffer_output_gals", run_params->NOUT,
                                      sizeof(save_info->buffer_output_gals[0]));
@@ -410,15 +410,40 @@ int32_t finalize_hdf5_galaxy_files(const struct forest_info *forest_info, struct
     CHECK_STATUS_AND_RETURN_ON_FAIL(group_id, (int32_t) group_id,
                                     "Failed to create the TreeInfo group.\nThe file ID was %d\n",
                                     (int32_t) save_info->file_id);
-    
+
+    herr_t h5_status = H5Gclose(group_id);
+    CHECK_STATUS_AND_RETURN_ON_FAIL(h5_status, (int32_t) h5_status,
+                                    "Failed to close the /TreeInfo group."
+                                    "The group ID was %d.\n", (int32_t) group_id);
+
     for(int32_t snap_idx = 0; snap_idx < run_params->NOUT; snap_idx++) {
+
+        // Attributes can only be 64kb in size (strict rule enforced by the HDF5 group).
+        // For larger simulations, we will have so many trees, that the number of galaxies per tree
+        // array (`save_info->forest_ngals`) will exceed 64kb.  Hence we will write this data to a
+        // dataset rather than into an attribute.
+        char field_name[MAX_STRING_LEN];
+        char description[MAX_STRING_LEN];
+        char unit[MAX_STRING_LEN];
+
+        snprintf(field_name, MAX_STRING_LEN - 1, "/TreeInfo/Snap_%d", run_params->ListOutputSnaps[snap_idx]);
+        group_id = H5Gcreate2(save_info->file_id, field_name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        CHECK_STATUS_AND_RETURN_ON_FAIL(group_id, (int32_t) group_id,
+                                        "Failed to create the %s group.\nThe file ID was %d\n", field_name,
+                                        (int32_t) save_info->file_id);
+
+        h5_status = H5Gclose(group_id);
+        CHECK_STATUS_AND_RETURN_ON_FAIL(h5_status, (int32_t) h5_status,
+                                        "Failed to close the /TreeInfo/Snap_%d group."
+                                        "The group ID was %d.\n", run_params->ListOutputSnaps[snap_idx],
+                                        (int32_t) group_id);
 
         // We still have galaxies remaining in the buffer. Need to write them.
         int32_t num_gals_to_write = save_info->num_gals_in_buffer[snap_idx];
 
         if(num_gals_to_write > 0) {
-            herr_t h5_status = trigger_buffer_write(snap_idx, num_gals_to_write,
-                                                    save_info->tot_ngals[snap_idx], save_info, run_params);
+            h5_status = trigger_buffer_write(snap_idx, num_gals_to_write,
+                                             save_info->tot_ngals[snap_idx], save_info, run_params);
             if(h5_status != EXIT_SUCCESS) {
                 return h5_status;
             }
@@ -442,16 +467,8 @@ int32_t finalize_hdf5_galaxy_files(const struct forest_info *forest_info, struct
         CREATE_SINGLE_ATTRIBUTE(save_info->group_ids[snap_idx], "num_gals", save_info->tot_ngals[snap_idx], H5T_NATIVE_LLONG);
 
 
-        // Attributes can only be 64kb in size (strict rule enforced by the HDF5 group).
-        // For larger simulations, we will have so many trees, that the number of galaxies per tree
-        // array (`save_info->forest_ngals`) will exceed 64kb.  Hence we will write this data to a
-        // dataset rather than into an attribute.
-        char field_name[MAX_STRING_LEN];
-        char description[MAX_STRING_LEN];
-        char unit[MAX_STRING_LEN];
-
-        snprintf(field_name, MAX_STRING_LEN -  1, "TreeInfo/Snap_%d/NumGalsPerTree", run_params->ListOutputSnaps[snap_idx]);
-        snprintf(description, MAX_STRING_LEN -  1, "The number of galaxies per tree.");
+        snprintf(field_name, MAX_STRING_LEN -  1, "TreeInfo/Snap_%d/NumGalsPerTreePerSnap", run_params->ListOutputSnaps[snap_idx]);
+        snprintf(description, MAX_STRING_LEN -  1, "The number of galaxies per tree at this snapshot.");
         snprintf(unit, MAX_STRING_LEN-  1, "Unitless");
 
         // JS: I've tried to put this manually into the function but it keeps hanging...
@@ -465,15 +482,16 @@ int32_t finalize_hdf5_galaxy_files(const struct forest_info *forest_info, struct
 
         hid_t dataset_id = H5Dcreate2(save_info->file_id, field_name, H5T_NATIVE_INT, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
         CHECK_STATUS_AND_RETURN_ON_FAIL(dataset_id, (int32_t) dataset_id,
-                                        "Could not create a dataset for the number of galaxies per tree.\n"
-                                        "The dimensions of the dataset was %d\nThe file id was %d\n.",
-                                        (int32_t) dims[0], (int32_t) save_info->file_id);
+                                        "Could not create a dataset for the number of galaxies per tree at snapshot = %d.\n"
+                                        "The dimensions of the dataset was %d\nThe file id was %d.\n",
+                                        snap_idx, (int32_t) dims[0], (int32_t) save_info->file_id);
 
-        herr_t h5_status = H5Dwrite(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, save_info->forest_ngals[snap_idx]);
+        h5_status = H5Dwrite(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, save_info->forest_ngals[snap_idx]);
         CHECK_STATUS_AND_RETURN_ON_FAIL(h5_status, (int32_t) h5_status,
-                                        "Failed to write a dataset for the number of galaxies per tree.\n"
-                                        "The dimensions of the dataset was %d\nThe file ID was %d\n."
-                                        "The dataset ID was %d.", (int32_t) dims[0], (int32_t) save_info->file_id,
+                                        "Failed to write a dataset for the number of galaxies per tree at snapshot = %d.\n"
+                                        "The dimensions of the dataset was %d.\nThe file ID was %d.\n"
+                                        "The dataset ID was %d.",
+                                        snap_idx, (int32_t) dims[0], (int32_t) save_info->file_id,
                                         (int32_t) dataset_id);
 
         h5_status = H5Dclose(dataset_id);
@@ -490,16 +508,18 @@ int32_t finalize_hdf5_galaxy_files(const struct forest_info *forest_info, struct
                                         "The dataset ID was %d.", (int32_t) dims[0], (int32_t) save_info->file_id,
                                         (int32_t) dataset_id);
     }
+    group_id = H5Gopen2(save_info->file_id, "/TreeInfo", H5P_DEFAULT);
+
     /*MS: Now add in the two attributes about the ID generation scheme */
     CREATE_SINGLE_ATTRIBUTE(group_id, "FileNr_Mulfac", run_params->FileNr_Mulfac, H5T_NATIVE_LLONG);
-    CREATE_SINGLE_ATTRIBUTE(group_id, "ForestNr_Mulfac", run_params->ForestNr_Mulfac, H5T_NATIVE_LLONG);    
-    
-    herr_t h5_status = H5Gclose(group_id);
+    CREATE_SINGLE_ATTRIBUTE(group_id, "ForestNr_Mulfac", run_params->ForestNr_Mulfac, H5T_NATIVE_LLONG);
+
+    h5_status = H5Gclose(group_id);
     CHECK_STATUS_AND_RETURN_ON_FAIL(h5_status, (int32_t) h5_status,
                                     "Failed to close the NumGalsPerTree group."
                                     "The group ID was %d.\n", (int32_t) group_id);
 
-    
+
     // Finally let's write some header attributes here.
     // We do this here rather than in ``initialize()`` because we need the number of galaxies per tree.
     group_id = H5Gcreate(save_info->file_id, "/Header", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
@@ -534,13 +554,13 @@ int32_t finalize_hdf5_galaxy_files(const struct forest_info *forest_info, struct
                                     (int32_t) save_info->file_id);
 
     free(save_info->group_ids);
-    
+
     for(int32_t i=0;i<save_info->num_output_fields;i++) {
         free(save_info->name_output_fields[i]);
     }
     free(save_info->name_output_fields);
     free(save_info->field_dtypes);
-    
+
     // Free all the other memory.
     free(save_info->num_gals_in_buffer);
 
@@ -707,7 +727,7 @@ int32_t create_hdf5_master_file(const struct params *run_params)
 int32_t generate_field_metadata(char (*field_names)[MAX_STRING_LEN], char (*field_descriptions)[MAX_STRING_LEN],
                                 char (*field_units)[MAX_STRING_LEN], hsize_t *field_dtypes)
 {
-    
+
     char tmp_names[NUM_OUTPUT_FIELDS][MAX_STRING_LEN] = {"SnapNum", "Type", "GalaxyIndex", "CentralGalaxyIndex", "SAGEHaloIndex",
                                                          "SAGETreeIndex", "SimulationHaloIndex", "mergeType", "mergeIntoID",
                                                          "mergeIntoSnapNum", "dT", "Posx", "Posy", "Posz", "Velx", "Vely", "Velz",
@@ -754,7 +774,7 @@ int32_t generate_field_metadata(char (*field_names)[MAX_STRING_LEN], char (*fiel
                                                                 "Virial mass of this galaxy's halo at the previous timestep.",
                                                                 "Virial velocity of this galaxy's halo at the previous timestep.",
                                                                 "Maximum circular speed of this galaxy's halo at the previous timestep."};
-    
+
     char tmp_units[NUM_OUTPUT_FIELDS][MAX_STRING_LEN] = {"Unitless", "Unitless", "Unitless", "Unitless", "Unitless",
                                                          "Unitless", "Unitless", "Unitless", "Unitless",
                                                          "Unitless", "Myr", "Mpc/h", "Mpc/h", "Mpc/h", "km/s", "km/s", "km/s",
@@ -765,7 +785,7 @@ int32_t generate_field_metadata(char (*field_names)[MAX_STRING_LEN], char (*fiel
                                                          "1.0e10 Msun/h", "1.0e10 Msun/h", "1.0e10 Msun/h", "Msun/yr", "Msun/yr", "Msun/yr",
                                                          "Msun/yr", "Mpc/h", "erg/s", "erg/s", "1.0e10 Msun/h",
                                                          "Myr", "Myr", "Msun/yr", "1.0e10 Msun/yr", "km/s", "km/s"};
-    
+
     // These are the HDF5 datatypes for each field.
     hsize_t tmp_dtype[NUM_OUTPUT_FIELDS] = {H5T_NATIVE_INT, H5T_NATIVE_INT, H5T_NATIVE_LLONG, H5T_NATIVE_LLONG, H5T_NATIVE_INT,
                                             H5T_NATIVE_INT, H5T_NATIVE_LLONG, H5T_NATIVE_INT, H5T_NATIVE_INT,
@@ -777,7 +797,7 @@ int32_t generate_field_metadata(char (*field_names)[MAX_STRING_LEN], char (*fiel
                                             H5T_NATIVE_FLOAT, H5T_NATIVE_FLOAT, H5T_NATIVE_FLOAT, H5T_NATIVE_FLOAT, H5T_NATIVE_FLOAT, H5T_NATIVE_FLOAT,
                                             H5T_NATIVE_FLOAT, H5T_NATIVE_FLOAT, H5T_NATIVE_FLOAT, H5T_NATIVE_FLOAT, H5T_NATIVE_FLOAT, H5T_NATIVE_FLOAT,
                                             H5T_NATIVE_FLOAT, H5T_NATIVE_FLOAT};
-    
+
     for(int32_t i = 0; i < NUM_OUTPUT_FIELDS; i++) {
         memcpy(field_names[i], tmp_names[i], MAX_STRING_LEN);
         memcpy(field_descriptions[i], tmp_descriptions[i], MAX_STRING_LEN);
@@ -1027,7 +1047,7 @@ int32_t trigger_buffer_write(const int32_t snap_idx, const int32_t num_to_write,
     // This parameter is incremented in every Macro call. It is used to ensure we are
     // accessing the correct dataset.
     int32_t field_idx = 0;
-    
+
     // We now need to write each property to file.  This is performed in a stack of macros because
     // it's not possible to loop through the members of a struct.
     EXTEND_AND_WRITE_GALAXY_DATASET(SnapNum);

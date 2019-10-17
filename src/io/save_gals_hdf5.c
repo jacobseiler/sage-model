@@ -464,7 +464,7 @@ int32_t finalize_hdf5_galaxy_files(const struct forest_info *forest_info, struct
                                         "The dimensions of the dataspace was %d\n", (int32_t) dims[0]);
 
         hid_t dataset_id = H5Dcreate2(save_info->file_id, field_name, H5T_NATIVE_INT, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-        CHECK_STATUS_AND_RETURN_ON_FAIL(dataspace_id, (int32_t) dataspace_id,
+        CHECK_STATUS_AND_RETURN_ON_FAIL(dataset_id, (int32_t) dataset_id,
                                         "Could not create a dataset for the number of galaxies per tree.\n"
                                         "The dimensions of the dataset was %d\nThe file id was %d\n.",
                                         (int32_t) dims[0], (int32_t) save_info->file_id);

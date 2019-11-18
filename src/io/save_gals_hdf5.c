@@ -429,14 +429,13 @@ int32_t finalize_hdf5_galaxy_files(const struct forest_info *forest_info, struct
         snprintf(field_name, MAX_STRING_LEN - 1, "/TreeInfo/Snap_%d", run_params->ListOutputSnaps[snap_idx]);
         group_id = H5Gcreate2(save_info->file_id, field_name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
         CHECK_STATUS_AND_RETURN_ON_FAIL(group_id, (int32_t) group_id,
-                                        "Failed to create the %s group.\nThe file ID was %d\n", field_name,
-                                        (int32_t) save_info->file_id);
+                                        "Failed to create the '%s' group.\n"
+                                        "The file ID was %d\n", field_name, (int32_t) save_info->file_id);
 
         h5_status = H5Gclose(group_id);
         CHECK_STATUS_AND_RETURN_ON_FAIL(h5_status, (int32_t) h5_status,
-                                        "Failed to close the /TreeInfo/Snap_%d group."
-                                        "The group ID was %d.\n", run_params->ListOutputSnaps[snap_idx],
-                                        (int32_t) group_id);
+                                        "Failed to close '%s' group."
+                                        "The group ID was %d.\n", field_name, (int32_t) group_id);
 
         // We still have galaxies remaining in the buffer. Need to write them.
         int32_t num_gals_to_write = save_info->num_gals_in_buffer[snap_idx];

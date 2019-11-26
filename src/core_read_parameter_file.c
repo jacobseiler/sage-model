@@ -202,57 +202,55 @@ int read_parameter_file(const int ThisTask, const char *fname, struct params *ru
         return FILE_NOT_FOUND;
     }
 
-    if(fd != NULL) {
-        char buffer[MAX_STRING_LEN];
-        while(fgets(&(buffer[0]), MAX_STRING_LEN, fd) != NULL) {
-            char buf1[MAX_STRING_LEN], buf2[MAX_STRING_LEN];
-            if(sscanf(buffer, "%s%s%*[^\n]", buf1, buf2) < 2) {
-                continue;
+    char buffer[MAX_STRING_LEN];
+    while(fgets(&(buffer[0]), MAX_STRING_LEN, fd) != NULL) {
+        char buf1[MAX_STRING_LEN], buf2[MAX_STRING_LEN];
+        if(sscanf(buffer, "%s%s%*[^\n]", buf1, buf2) < 2) {
+            continue;
+        }
+
+        if(buf1[0] == '%' || buf1[0] == '-') {
+            continue;
+        }
+
+        int j=-1;
+        for(int i = 0; i < NParam; i++) {
+            if(strcmp(buf1, ParamTag[i]) == 0) {
+                j = i;
+                ParamTag[i][0] = 0;
+                used_tag[i] = 0;
+                break;
+            }
+        }
+
+        if(j >= 0) {
+            if(ThisTask == 0) {
+                printf("%35s\t%10s\n", buf1, buf2);
             }
 
-            if(buf1[0] == '%' || buf1[0] == '-') {
-                continue;
-            }
-
-            int j=-1;
-            for(int i = 0; i < NParam; i++) {
-                if(strcmp(buf1, ParamTag[i]) == 0) {
-                    j = i;
-                    ParamTag[i][0] = 0;
-                    used_tag[i] = 0;
+            switch (ParamID[j])
+                {
+                case DOUBLE:
+                    *((double *) ParamAddr[j]) = atof(buf2);
+                    break;
+                case STRING:
+                    strcpy(ParamAddr[j], buf2);
+                    break;
+                case INT:
+                    *((int *) ParamAddr[j]) = atoi(buf2);
                     break;
                 }
-            }
-
-            if(j >= 0) {
-                if(ThisTask == 0) {
-                    printf("%35s\t%10s\n", buf1, buf2);
-                }
-
-                switch (ParamID[j])
-                    {
-                    case DOUBLE:
-                        *((double *) ParamAddr[j]) = atof(buf2);
-                        break;
-                    case STRING:
-                        strcpy(ParamAddr[j], buf2);
-                        break;
-                    case INT:
-                        *((int *) ParamAddr[j]) = atoi(buf2);
-                        break;
-                    }
-            } else {
-                printf("Error in file %s:   Tag '%s' not allowed or multiply defined.\n", fname, buf1);
-                errorFlag = 1;
-            }
+        } else {
+            printf("Error in file %s:   Tag '%s' not allowed or multiply defined.\n", fname, buf1);
+            errorFlag = 1;
         }
-        fclose(fd);
+    }
+    fclose(fd);
 
-        const size_t i = strlen(run_params->OutputDir);
-        if(i > 0) {
-            if(run_params->OutputDir[i - 1] != '/')
-                strcat(run_params->OutputDir, "/");
-        }
+    const size_t i = strlen(run_params->OutputDir);
+    if(i > 0) {
+        if(run_params->OutputDir[i - 1] != '/')
+            strcat(run_params->OutputDir, "/");
     }
 
     for(int i = 0; i < NParam; i++) {

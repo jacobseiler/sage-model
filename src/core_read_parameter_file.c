@@ -247,9 +247,9 @@ int read_parameter_file(const int ThisTask, const char *fname, struct params *ru
     }
     fclose(fd);
 
-    const size_t i = strlen(run_params->OutputDir);
-    if(i > 0) {
-        if(run_params->OutputDir[i - 1] != '/')
+    const size_t stringlen = strlen(run_params->OutputDir);
+    if(stringlen > 0) {
+        if(run_params->OutputDir[stringlen - 1] != '/')
             strcat(run_params->OutputDir, "/");
     }
 

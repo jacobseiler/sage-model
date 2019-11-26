@@ -480,7 +480,7 @@ static inline int read_single_tree_ctrees(int fd, off_t offset, const struct ctr
 
                     if( ! ( this >= start && (this - start) < PARSE_CTREES_MAXBUFSIZE)) {
                         fprintf(stderr, "Error: Expected this = %p to be >= start = %p "
-                                "and (this - start) = %ld to be less than PARSE_CTREES_MAXBUFSIZE = %u\n",
+                                "and (this - start) = %td to be less than PARSE_CTREES_MAXBUFSIZE = %u\n",
                                 this, start, this - start, PARSE_CTREES_MAXBUFSIZE);
                         return EXIT_FAILURE;
                     }

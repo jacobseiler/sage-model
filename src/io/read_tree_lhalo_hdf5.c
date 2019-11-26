@@ -82,6 +82,9 @@ int setup_forests_io_lht_hdf5(struct forest_info *forests_info, const int firstf
             //Check if the number of simulation output files have been set correctly
             int32_t numsimulationfiles;
             status = read_attribute(fd, "/Header", metadata_names.name_NumSimulationTreeFiles, &numsimulationfiles, sizeof(numsimulationfiles));
+            if(status != EXIT_SUCCESS) {
+                return status;
+            }
             if(numsimulationfiles != run_params->NumSimulationTreeFiles) {
                 fprintf(stderr,"Error: Parameter file mentions total number of simulation output files = %d but the "
                         "hdf5 field `%s' says %d tree files\n",

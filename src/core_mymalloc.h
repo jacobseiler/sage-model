@@ -9,9 +9,9 @@ extern "C" {
     extern void *mycalloc(const size_t count, const size_t size);
     extern void *myrealloc(void *p, size_t n);
     extern void myfree(void *p);
-#ifdef VERBOSE_MEMORY    
+#ifdef VERBOSE
     extern void print_allocated(void);
-#endif    
+#endif
 
 #ifdef __cplusplus
 }

@@ -252,10 +252,13 @@ int32_t sage_per_forest(const int64_t forestnr, struct save_info *save_info,
 #ifdef PROCESS_LHVT_STYLE
     free(file_ordering_of_halos);
     /* done with re-ordering the halos into a locally horizontal vertical tree format */
-    
+
     int nfofs_all_snaps[ABSOLUTEMAXSNAPS] = {0};
     /* getting the number of FOF halos at each snapshot */
-    get_nfofs_all_snaps(Halo, nhalos, nfofs_all_snaps, ABSOLUTEMAXSNAPS);
+    status = get_nfofs_all_snaps(Halo, nhalos, nfofs_all_snaps, ABSOLUTEMAXSNAPS);
+    if(status != EXIT_SUCCESS) {
+        return status;
+    }
 
 #if 0
     for(int halonr = 0; halonr < nhalos; halonr++) {
@@ -263,7 +266,7 @@ int32_t sage_per_forest(const int64_t forestnr, struct save_info *save_info,
                 halonr, Halo[halonr].SnapNum, Halo[halonr].Mvir, Halo[halonr].FirstHaloInFOFgroup, Halo[halonr].NextHaloInFOFgroup);
     }
 #endif
-    
+
     /* this will be the new processing style --> one snapshot at a time */
     uint32_t ngal = 0;
     for(int snapshot=min_snapshot;snapshot <= max_snapshot; snapshot++) {
@@ -275,7 +278,7 @@ int32_t sage_per_forest(const int64_t forestnr, struct save_info *save_info,
 
 #else
     /*MS: This is the normal SAGE processing on a tree-by-tree (vertical) basis */
-    
+
     /* Now start the processing */
     int32_t galaxycounter = 0;
 

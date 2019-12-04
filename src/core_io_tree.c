@@ -82,8 +82,8 @@ int setup_forests_io(struct params *run_params, struct forest_info *forests_info
                 forests_info->frac_volume_processed);
         return EXIT_FAILURE;
     }
-       
-    
+
+
     return status;
 }
 
@@ -159,7 +159,7 @@ int64_t load_forest(struct params *run_params, const int64_t forestnr, struct ha
         fprintf(stderr, "Your tree type has not been included in the switch statement for ``%s`` in ``%s``.\n",
                 __FUNCTION__, __FILE__);
         fprintf(stderr, "Please add it there.\n");
-        ABORT(EXIT_FAILURE);
+        return -EXIT_FAILURE;
     }
 
     return nhalos;

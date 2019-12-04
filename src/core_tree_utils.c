@@ -128,7 +128,7 @@ int reorder_lhalo_to_lhvt(const int32_t nhalos, struct halo_data *forest, int32_
                     return EXIT_FAILURE;
                 }
             } else {
-                XRETURN(desc >= 0 && desc < nhalos, -1,
+                XRETURN(desc >= 0 && desc < nhalos, EXIT_FAILURE,
                         "Error: desc = %d should be in range [0, %d)",
                         desc, nhalos);
                 if(desc_len[old_index] != forest[desc].Len) {
@@ -150,7 +150,7 @@ int reorder_lhalo_to_lhvt(const int32_t nhalos, struct halo_data *forest, int32_
                 if( prog < 0 || prog >= nhalos) {
                     fprintf(stderr,"WEIRD: prog = %d for i=%d is not within [0, %d)\n",prog, i, nhalos);
                 }
-                XRETURN(prog >=0 && prog < nhalos, -1,
+                XRETURN(prog >=0 && prog < nhalos, EXIT_FAILURE,
                         "Error: progenitor index = %d should be in range [0, %d)\n",
                         prog, nhalos);
                 if(prog_len[old_index] != forest[prog].Len) {
@@ -267,7 +267,7 @@ int fix_mergertree_index(struct halo_data *forest, const int64_t nhalos, const i
 }
 
 
-void get_nfofs_all_snaps(const struct halo_data *forest, const int nhalos, int *nfofs_all_snaps, const int nsnaps)
+int get_nfofs_all_snaps(const struct halo_data *forest, const int nhalos, int *nfofs_all_snaps, const int nsnaps)
 {
     for(int i=0;i<nsnaps;i++) {
         nfofs_all_snaps[i] = 0;
@@ -278,11 +278,11 @@ void get_nfofs_all_snaps(const struct halo_data *forest, const int nhalos, int *
             const int snap = forest[i].SnapNum;
             if(snap < 0 || snap >= nsnaps) {
                 fprintf(stderr, "Validation error: snapshot = %d must be within [0, %d)\n", snap, nsnaps);
-                ABORT(SNAPSHOT_OUT_OF_RANGE);
+                return INVALID_MEMORY_ACCESS_REQUESTED;
             }
             nfofs_all_snaps[snap]++;
         }
     }
+
+    return EXIT_SUCCESS;
 }
-
-

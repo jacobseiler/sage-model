@@ -33,7 +33,7 @@ int64_t read_forests(const char *filename, int64_t **f, int64_t **t)
     FILE *fp = fopen(filename, "rt");
     if(fp == NULL) {
         fprintf(stderr,"Error: can't open file `%s'\n", filename);
-        return -FILE_NOT_FOUND; 
+        return -FILE_NOT_FOUND;
     }
     ntrees = getnumlines(filename, comment);
 
@@ -137,7 +137,7 @@ int64_t read_locations(const char *filename, const int64_t ntrees, struct locati
                 XRETURN(new_numtrees != NULL, -MALLOC_FAILURE,
                         "Error: Could not re-allocate memory of %zu bytes to hold %"PRIu32" items containing 64-bit integers\n",
                         numfiles_allocated*sizeof(files_fd->numtrees_per_file[0]), numfiles_allocated);
-                
+
                 files_fd->fd = new_fd;
                 files_fd->numtrees_per_file = new_numtrees;
                 for(uint32_t i=files_fd->nallocated;i<numfiles_allocated;i++) {
@@ -159,7 +159,7 @@ int64_t read_locations(const char *filename, const int64_t ntrees, struct locati
                 files_fd->numfiles++;
             }
             files_fd->numtrees_per_file[fileid]++;
-            
+
             ntrees_found++;
             locations++;
         }
@@ -468,16 +468,16 @@ int assign_mergertree_indices(const int64_t totnhalos, struct halo_data *forest,
 {
     const int nsnapshots = max_snapnum + 1;
     double *scales = malloc(nsnapshots * sizeof(*scales));
-    XRETURN(scales != NULL, -MALLOC_FAILURE,
+    XRETURN(scales != NULL, MALLOC_FAILURE,
             "Error: Could not allocate memory to store the scale-factors for each snapshot (nsnapshots = %d)\n", nsnapshots);
     for(int i=0;i<nsnapshots;i++) {
         scales[i] = DBL_MAX;
     }
     int64_t *start_scale = malloc(nsnapshots * sizeof(*start_scale));
-    XRETURN(start_scale != NULL, -MALLOC_FAILURE,
+    XRETURN(start_scale != NULL, MALLOC_FAILURE,
             "Error: Could not allocate memory to store the starting scale-factors for each snapshot (nsnapshots = %d)\n", nsnapshots);
     int64_t *end_scale = malloc(nsnapshots * sizeof(*end_scale));
-    XRETURN(end_scale != NULL, -MALLOC_FAILURE,
+    XRETURN(end_scale != NULL, MALLOC_FAILURE,
             "Error: Could not allocate memory to store the ending scale-factors for each snapshot (nsnapshots = %d)\n", nsnapshots);
     for(int i=0;i<nsnapshots;i++) {
         start_scale[i] = -1;
@@ -511,7 +511,7 @@ int assign_mergertree_indices(const int64_t totnhalos, struct halo_data *forest,
     for(int64_t i=0;i<totnhalos;i++) {
         /* fprintf(stderr,ANSI_COLOR_RED"FirstHaloInFOFgroup = %"PRId64 ANSI_COLOR_RESET"\n",FirstHaloInFOFgroup); */
         const int snapnum = forest[i].SnapNum;
-        XRETURN(snapnum >= 0 && snapnum < nsnapshots, -EXIT_FAILURE,
+        XRETURN(snapnum >= 0 && snapnum < nsnapshots, EXIT_FAILURE,
                 "snapnum = %d is outside range [0, %d)\n",
                 snapnum, nsnapshots);
         scales[snapnum] = info[i].scale;
@@ -521,7 +521,7 @@ int assign_mergertree_indices(const int64_t totnhalos, struct halo_data *forest,
         }
 
         if(info[i].pid == -1) {
-            XRETURN(i < INT_MAX, -EXIT_FAILURE,
+            XRETURN(i < INT_MAX, EXIT_FAILURE,
                     "Assigning to integer i = %"PRId64" is more than %d\n",
                     i, INT_MAX);
             forest[i].FirstHaloInFOFgroup = (int) i;
@@ -538,13 +538,13 @@ int assign_mergertree_indices(const int64_t totnhalos, struct halo_data *forest,
                 }
             }
 
-            XRETURN(FirstHaloInFOFgroup != -1, -EXIT_FAILURE,
+            XRETURN(FirstHaloInFOFgroup != -1, EXIT_FAILURE,
                     "Processing subhalos i=%"PRId64" but have not encountered FOF yet..bug\n"
                     "id = %"PRId64" pid = %"PRId64" upid = %"PRId64" snapnum = %d\n",
                     i,info[i].id, info[i].pid, info[i].upid, forest[i].SnapNum);
 
             if(info[i].upid == fof_id) {
-                XRETURN(FirstHaloInFOFgroup < INT_MAX, -EXIT_FAILURE,
+                XRETURN(FirstHaloInFOFgroup < INT_MAX, EXIT_FAILURE,
                         "Assigning FirstHaloInFOFgroup = %"PRId64". Must be less than %d\n",
                         FirstHaloInFOFgroup, INT_MAX);
                 forest[i].FirstHaloInFOFgroup = FirstHaloInFOFgroup;
@@ -558,18 +558,18 @@ int assign_mergertree_indices(const int64_t totnhalos, struct halo_data *forest,
 
                 fprintf(stderr,"i = %"PRId64" id = %"PRId64" pid = %"PRId64" fof_id = %"PRId64" upid = %"PRId64" FirstHaloInFOFgroup = %"PRId64"\n",
                         i, info[i].id, info[i].pid, fof_id, info[i].upid, FirstHaloInFOFgroup);
-                return -EXIT_FAILURE;
+                return EXIT_FAILURE;
             }
             int64_t insertion_point = FirstHaloInFOFgroup;
             while(forest[insertion_point].NextHaloInFOFgroup != -1) {
                 const int32_t nexthalo = forest[insertion_point].NextHaloInFOFgroup;
-                XRETURN(nexthalo >=0 && nexthalo < totnhalos, -EXIT_FAILURE,
+                XRETURN(nexthalo >=0 && nexthalo < totnhalos, EXIT_FAILURE,
                         "Inserting next halo in FOF group into invalid index. nexthalo = %d totnhalos = %"PRId64"\n",
                         nexthalo, totnhalos);
 
                 insertion_point = nexthalo;
             }
-            XRETURN(i < INT_MAX, -EXIT_FAILURE,
+            XRETURN(i < INT_MAX, EXIT_FAILURE,
                     "Assigning FirstHaloInFOFgroup = %"PRId64". Must be less than %d\n",
                     i, INT_MAX);
 
@@ -593,7 +593,7 @@ int assign_mergertree_indices(const int64_t totnhalos, struct halo_data *forest,
             desc_snapnum--;
         }
         XRETURN(desc_snapnum >= 0 && desc_snapnum < nsnapshots && (fabs(scales[desc_snapnum] - desc_scale) <= 1e-4),
-                -EXIT_FAILURE,
+                EXIT_FAILURE,
                 "Could not locate desc_snapnum. desc_snapnum = %d nsnapshots = %d \n",
                 desc_snapnum, nsnapshots);
 
@@ -603,16 +603,16 @@ int assign_mergertree_indices(const int64_t totnhalos, struct halo_data *forest,
             desc_loc++;
         }
         XRETURN(desc_loc >= start_scale[desc_snapnum] && desc_loc <= end_scale[desc_snapnum],
-                -EXIT_FAILURE,
+                EXIT_FAILURE,
                 "Desc loc = %"PRId64" for snapnum = %d is outside range [%"PRId64", %"PRId64"]\n",
                 desc_loc, desc_snapnum, start_scale[desc_snapnum], end_scale[desc_snapnum]);
         XRETURN(info[desc_loc].id == descid,
-                -EXIT_FAILURE,
+                EXIT_FAILURE,
                 "Should have found descendant id = %"PRId64" but info[%"PRId64"]=%"PRId64" instead \n",
                 descid, desc_loc, info[desc_loc].id);
 
         XRETURN(desc_loc < INT_MAX,
-                -EXIT_FAILURE,
+                EXIT_FAILURE,
                 "desc_loc = %"PRId64" must be less than INT_MAX = %d\n",
                 desc_loc, INT_MAX);
 
@@ -630,12 +630,12 @@ int assign_mergertree_indices(const int64_t totnhalos, struct halo_data *forest,
             */
             const int first_prog = forest[desc_loc].FirstProgenitor;
             XRETURN(first_prog >= 0 && first_prog < totnhalos,
-                    -EXIT_FAILURE,
+                    EXIT_FAILURE,
                     "first_prog=%d must lie within [0, %"PRId64"\n",
                     first_prog, totnhalos);
             if(forest[first_prog].Mvir < forest[i].Mvir) {
                 XRETURN(i < INT_MAX,
-                        -EXIT_FAILURE,
+                        EXIT_FAILURE,
                         "Assigning Nextprogenitor = %"PRId64" to an int will result in garbage. INT_MAX = %d\n",
                         i, INT_MAX);
                 forest[desc_loc].FirstProgenitor = i;
@@ -644,7 +644,7 @@ int assign_mergertree_indices(const int64_t totnhalos, struct halo_data *forest,
                 int64_t insertion_point = first_prog;
                 while(forest[insertion_point].NextProgenitor != -1) {
                     const int64_t next_prog = forest[insertion_point].NextProgenitor;
-                    XRETURN(next_prog >=0 && next_prog < totnhalos, -EXIT_FAILURE,
+                    XRETURN(next_prog >=0 && next_prog < totnhalos, EXIT_FAILURE,
                             "Inserting next progenitor into invalid index. insertion_point = %"PRId64" totnhalos = %"PRId64"\n",
                             next_prog, totnhalos);
 
@@ -654,7 +654,7 @@ int assign_mergertree_indices(const int64_t totnhalos, struct halo_data *forest,
                     /* } */
                     insertion_point = next_prog;
                 }
-                XRETURN(i < INT_MAX, -EXIT_FAILURE,
+                XRETURN(i < INT_MAX, EXIT_FAILURE,
                         "Assigning Nextprogenitor = %"PRId64" to an int will result in garbage. INT_MAX = %d\n",
                         i, INT_MAX);
                 forest[insertion_point].NextProgenitor = i;

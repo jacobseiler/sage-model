@@ -128,7 +128,7 @@ int setup_forests_io_ctrees(struct forest_info *forests_info, const int ThisTask
             start_treenum, totntrees);
 
 
-    
+
     ctr->nforests = nforests_this_task;
     ctr->ntrees_per_forest = mymalloc(nforests_this_task * sizeof(ctr->ntrees_per_forest[0]));
 
@@ -150,12 +150,12 @@ int setup_forests_io_ctrees(struct forest_info *forests_info, const int ThisTask
     CHECK_POINTER_AND_RETURN_ON_NULL(forests_info->FileNr,
                                      "Failed to allocate %"PRId64" elements of size %zu for forests_info->FileNr", nforests_this_task,
                                      sizeof(*(forests_info->FileNr)));
-    
+
     forests_info->original_treenr = malloc(nforests_this_task * sizeof(*(forests_info->original_treenr)));
     CHECK_POINTER_AND_RETURN_ON_NULL(forests_info->original_treenr,
                                      "Failed to allocate %"PRId64" elements of size %zu for forests_info->original_treenr", nforests_this_task,
                                      sizeof(*(forests_info->original_treenr)));
-    
+
     iforest = -1;
     prev_forestid = -1;
     int first_tree = 0;
@@ -206,7 +206,7 @@ int setup_forests_io_ctrees(struct forest_info *forests_info, const int ThisTask
         ctr->tree_offsets[treeindex] = locations[i].offset;
 
         /* MS: 23/9/2019 each tree from a given file is inversely weighted by the total
-           number of trees in that file */ 
+           number of trees in that file */
         forests_info->frac_volume_processed += 1.0/(double) files_fd.numtrees_per_file[fileid];
     }
     XRETURN(iforest == nforests_this_task-1, EXIT_FAILURE,
@@ -217,7 +217,7 @@ int setup_forests_io_ctrees(struct forest_info *forests_info, const int ThisTask
     /*MS: 23/9/2019 Fix up the normalisation to make the volume in [0.0, 1.0] (the previous step adds 1.0 per file
       -> the sum should be NumSimulationTreeFiles) */
     forests_info->frac_volume_processed /= (double) run_params->NumSimulationTreeFiles;
-        
+
     ctr->numfiles = files_fd.numfiles;
     ctr->open_fds = mymalloc(ctr->numfiles * sizeof(ctr->open_fds[0]));
     XRETURN(ctr->open_fds != NULL, MALLOC_FAILURE, "Error: Could not allocate memory to store the file descriptor per file\n"
@@ -314,7 +314,7 @@ int setup_forests_io_ctrees(struct forest_info *forests_info, const int ThisTask
        unique galaxy indices (across all files, all trees and all tasks) for this run*/
     run_params->FileNr_Mulfac = 0;
     run_params->ForestNr_Mulfac = 1000000000LL;/*MS: The ID needs to fit in 64 bits -> ID must be <  2^64 ~ 1e19.*/
-    
+
     return EXIT_SUCCESS;
 }
 
@@ -360,7 +360,7 @@ int64_t load_forest_ctrees(const int32_t forestnr, struct halo_data **halos, str
         /* fprintf(stderr,"*(base[0]) = %p , *(base[1]) = %p\n", *(base_info.base_ptrs[0]), *(base_info.base_ptrs[1])); */
         int status = read_single_tree_ctrees(fd, offset, column_info, &base_info);
         if(status != EXIT_SUCCESS) {
-            return -1;
+            return -EXIT_FAILURE;
         }
         struct halo_data *local_halos = *halos;
         const int64_t nhalos = base_info.N - prev_N;
@@ -382,7 +382,9 @@ int64_t load_forest_ctrees(const int32_t forestnr, struct halo_data **halos, str
     /* Fix flybys -> multiple roots at z=0 must be joined such that only one root remains */
     int status = fix_flybys(totnhalos, forest_halos, info, verbose);
     if(status != EXIT_SUCCESS) {
-        return -EXIT_FAILURE;
+        /* Not successful but the exit status from this routine has to be negative */
+        const int neg_status = status < 0 ? status:-status;
+        return neg_status;
     }
 
 
@@ -391,11 +393,13 @@ int64_t load_forest_ctrees(const int32_t forestnr, struct halo_data **halos, str
     if(max_snapnum < 0) {
         return -EXIT_FAILURE;
     }
-    
+
     /* Now the entire tree is loaded in. Assign the mergertree indices */
     status = assign_mergertree_indices(totnhalos, forest_halos, info, max_snapnum);
-    if(status < 0) {
-        return status;
+    if(status != EXIT_SUCCESS) {
+        /* Not successful but the exit status from this routine has to be negative */
+        const int neg_status = status < 0 ? status:-status;
+        return neg_status;
     }
 
     /* Now we can free the additional_info struct */

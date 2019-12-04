@@ -10,13 +10,13 @@ extern "C" {
 
 struct HDF5_GALAXY_OUTPUT
 {
-    int   *SnapNum;
+    int32_t   *SnapNum;
 
 #if 0
     short Type;
     short isFlyby;
 #else
-    int *Type;
+    int32_t *Type;
 #endif
     
     long long   *GalaxyIndex;
@@ -28,9 +28,9 @@ struct HDF5_GALAXY_OUTPUT
     long long   *SimulationHaloIndex;
     int64_t *TaskForestNr; /* MS: 17/9/2019 -- Tracks the cpu-local forest number */
 
-    int   *mergeType;  /* 0=none; 1=minor merger; 2=major merger; 3=disk instability; 4=disrupt to ICS */
-    int   *mergeIntoID;
-    int   *mergeIntoSnapNum;
+    int32_t  *mergeType;  /* 0=none; 1=minor merger; 2=major merger; 3=disk instability; 4=disrupt to ICS */
+    int32_t   *mergeIntoID;
+    int32_t   *mergeIntoSnapNum;
     float *dT;
 
     /* (sub)halo properties */
@@ -43,7 +43,7 @@ struct HDF5_GALAXY_OUTPUT
     float *Spinx;
     float *Spiny;
     float *Spinz;
-    int   *Len;
+    int32_t   *Len;
     float *Mvir;
     float *CentralMvir;
     float *Rvir;

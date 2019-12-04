@@ -18,12 +18,12 @@
 /* This structure contains the properties used within the code */
 struct GALAXY
 {
-    int   SnapNum;
-    int   Type;
+    int32_t   SnapNum;
+    int32_t  Type;
     
-    int   GalaxyNr;
-    int   CentralGal;
-    int   HaloNr;
+    int32_t   GalaxyNr;
+    int32_t   CentralGal;
+    int32_t   HaloNr;
     long long MostBoundID;
     uint64_t GalaxyIndex; // This is a unique value based on the tree local galaxy number,
     // file local tree number and the file number itself.
@@ -31,9 +31,9 @@ struct GALAXY
     uint64_t CentralGalaxyIndex; // Same as above, except the ``GalaxyIndex`` value for the CentralGalaxy
     // of this galaxy's FoF group.
 
-    int   mergeType;  /* 0=none; 1=minor merger; 2=major merger; 3=disk instability; 4=disrupt to ICS */
-    int   mergeIntoID;
-    int   mergeIntoSnapNum;
+    int32_t   mergeType;  /* 0=none; 1=minor merger; 2=major merger; 3=disk instability; 4=disrupt to ICS */
+    int32_t   mergeIntoID;
+    int32_t   mergeIntoSnapNum;
     float dT;
 
     /* (sub)halo properties */
@@ -95,27 +95,15 @@ struct GALAXY
 /* auxiliary halo data */
 struct halo_aux_data
 {
-    int DoneFlag;
-    int HaloFlag;
-    int NGalaxies;
+    int32_t DoneFlag;
+    int32_t HaloFlag;
+    int32_t NGalaxies;
     int FirstGalaxy;
 #ifdef PROCESS_LHVT_STYLE
-    int orig_index;
+    int32_t orig_index;
 #endif
-    int output_snap_n;
+    int32_t output_snap_n;
 };
-
-#if 0
-#ifdef HDF5
-extern char          *core_output_file;
-extern size_t         HDF5_dst_size;
-extern size_t        *HDF5_dst_offsets;
-extern size_t        *HDF5_dst_sizes;
-extern const char   **HDF5_field_names;
-extern hid_t         *HDF5_field_types;
-extern int            HDF5_n_props;
-#endif
-#endif
 
 #define DOUBLE 1
 #define STRING 2
@@ -266,8 +254,8 @@ struct save_info {
 
 struct params
 {
-    int    FirstFile;    /* first and last file for processing; only relevant for lhalotree style files (binary or hdf5) */
-    int    LastFile;
+    int32_t    FirstFile;    /* first and last file for processing; only relevant for lhalotree style files (binary or hdf5) */
+    int32_t    LastFile;
 
     char   OutputDir[MAX_STRING_LEN];
     char   FileNameGalaxies[MAX_STRING_LEN];
@@ -288,11 +276,11 @@ struct params
     double EtaSN;
 
     /* recipe flags */
-    int    SFprescription;
-    int    AGNrecipeOn;
-    int    SupernovaRecipeOn;
-    int    ReionizationOn;
-    int    DiskInstabilityOn;
+    int32_t    SFprescription;
+    int32_t    AGNrecipeOn;
+    int32_t    SupernovaRecipeOn;
+    int32_t    ReionizationOn;
+    int32_t   DiskInstabilityOn;
 
     double RecycleFraction;
     double Yield;
@@ -325,21 +313,21 @@ struct params
     double a0;
     double ar;
 
-    int LastSnapShotNr;
-    int MAXSNAPS;
-    int NOUT;
-    int Snaplistlen;
+    int32_t LastSnapShotNr;
+    int32_t MAXSNAPS;
+    int32_t NOUT;
+    int32_t Snaplistlen;
     enum Valid_TreeTypes TreeType;
     enum Valid_OutputFormats OutputFormat;
     int64_t FileNr_Mulfac;
     int64_t ForestNr_Mulfac;
 
-    int ListOutputSnaps[ABSOLUTEMAXSNAPS];
+    int32_t ListOutputSnaps[ABSOLUTEMAXSNAPS];
     double ZZ[ABSOLUTEMAXSNAPS];
     double AA[ABSOLUTEMAXSNAPS];
     double *Age;
 
-    int interrupted;/* to re-print the progress-bar */
+    int32_t interrupted;/* to re-print the progress-bar */
 
     int32_t ThisTask;
     int32_t NTasks;

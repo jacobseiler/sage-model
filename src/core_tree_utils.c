@@ -128,7 +128,7 @@ int reorder_lhalo_to_lhvt(const int32_t nhalos, struct halo_data *forest, int32_
                     return EXIT_FAILURE;
                 }
             } else {
-                XASSERT(desc >= 0 && desc < nhalos, -1,
+                XRETURN(desc >= 0 && desc < nhalos, -1,
                         "Error: desc = %d should be in range [0, %d)",
                         desc, nhalos);
                 if(desc_len[old_index] != forest[desc].Len) {
@@ -150,7 +150,7 @@ int reorder_lhalo_to_lhvt(const int32_t nhalos, struct halo_data *forest, int32_
                 if( prog < 0 || prog >= nhalos) {
                     fprintf(stderr,"WEIRD: prog = %d for i=%d is not within [0, %d)\n",prog, i, nhalos);
                 }
-                XASSERT(prog >=0 && prog < nhalos, -1,
+                XRETURN(prog >=0 && prog < nhalos, -1,
                         "Error: progenitor index = %d should be in range [0, %d)\n",
                         prog, nhalos);
                 if(prog_len[old_index] != forest[prog].Len) {

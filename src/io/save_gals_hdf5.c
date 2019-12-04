@@ -379,8 +379,11 @@ int32_t save_hdf5_galaxies(const int64_t task_forestnr, const int32_t num_gals, 
 
         // Add galaxies to buffer.
         int32_t snap_idx = haloaux[gal_idx].output_snap_n;
-        prepare_galaxy_for_hdf5_output(&halogal[gal_idx], save_info, snap_idx, halos, task_forestnr,
-                                       forest_info->original_treenr[task_forestnr], run_params);
+        status = prepare_galaxy_for_hdf5_output(&halogal[gal_idx], save_info, snap_idx, halos, task_forestnr,
+                                                forest_info->original_treenr[task_forestnr], run_params);
+        if(status != EXIT_SUCCESS) {
+            return status;
+        }
         save_info->num_gals_in_buffer[snap_idx]++;
 
         // We can't guarantee that this tree will contain enough galaxies to trigger a write.
@@ -824,7 +827,7 @@ int32_t prepare_galaxy_for_hdf5_output(const struct GALAXY *g, struct save_info 
     if(g->Type < SHRT_MIN || g->Type > SHRT_MAX) {
         fprintf(stderr,"Error: Galaxy type = %d can not be represented in 2 bytes\n", g->Type);
         fprintf(stderr,"Converting galaxy type while saving from integer to short will result in data corruption");
-        ABORT(EXIT_FAILURE);
+        return EXIT_FAILURE;
     }
     save_info->buffer_output_gals[output_snap_idx].Type[gals_in_buffer] = g->Type;
 

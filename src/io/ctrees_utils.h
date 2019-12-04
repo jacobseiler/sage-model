@@ -37,7 +37,7 @@ extern "C" {
     extern void sort_locations_on_fid_file_offset(const int64_t ntrees, struct locations_with_forests *locations);
     extern int fix_flybys(const int64_t totnhalos, struct halo_data *forest, struct additional_info *info, int verbose);
     extern int fix_upid(const int64_t totnhalos, struct halo_data *forest, struct additional_info *info, const int verbose);
-    extern void assign_mergertree_indices(const int64_t totnhalos, struct halo_data *forest, struct additional_info *info, const int max_snapnum);
+    extern int assign_mergertree_indices(const int64_t totnhalos, struct halo_data *forest, struct additional_info *info, const int max_snapnum);
 
 #ifdef __cplusplus
 }

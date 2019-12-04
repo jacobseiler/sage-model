@@ -212,6 +212,10 @@ int32_t sage_per_forest(const int64_t forestnr, struct save_info *save_info,
 
     /* nhalos is meaning-less for consistent-trees until *AFTER* the forest has been loaded */
     const int64_t nhalos = load_forest(run_params, forestnr, &Halo, forest_info);
+    if(nhalos < 0) {
+        fprintf(stderr,"Error during loading forestnum =  %"PRId64"...exiting\n", forestnr);
+        return nhalos;
+    }
 
     /* /\* need to actually set the nhalos value for CTREES*\/ */
     /* forest_info->totnhalos_per_forest[forestnr] = nhalos; */
@@ -242,7 +246,7 @@ int32_t sage_per_forest(const int64_t forestnr, struct save_info *save_info,
 #endif
     }
 
-    /* MS: numgas is shared by both LHVT and the standard processing */
+    /* MS: numgals is shared by both LHVT and the standard processing */
     int numgals = 0;
 
 #ifdef PROCESS_LHVT_STYLE
@@ -273,7 +277,7 @@ int32_t sage_per_forest(const int64_t forestnr, struct save_info *save_info,
     /*MS: This is the normal SAGE processing on a tree-by-tree (vertical) basis */
     
     /* Now start the processing */
-    int galaxycounter = 0;
+    int32_t galaxycounter = 0;
 
     /* First run construct_galaxies outside for loop -> takes care of the main tree */
     status = construct_galaxies(0, &numgals, &galaxycounter, &maxgals, Halo, HaloAux, &Gal, &HaloGal, run_params);

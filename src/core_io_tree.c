@@ -19,39 +19,6 @@
 #include "io/read_tree_genesis_standard_hdf5.h"
 #endif
 
-int open_forests_file(struct params *run_params, const int filenr)
-{
-    const enum Valid_TreeTypes TreeType = run_params->TreeType;
-    /* return a file descriptor */
-    char filename[4*MAX_STRING_LEN];
-    switch(TreeType) {
-#ifdef HDF5
-    case(illustris_lhalo_hdf5):
-        get_forests_filename_lht_hdf5(filename, 4*MAX_STRING_LEN, filenr, run_params);
-        break;
-#endif
-
-    case(lhalo_binary):
-        get_forests_filename_lht_binary(filename, 4*MAX_STRING_LEN, filenr, run_params);
-        break;
-    case(consistent_trees_ascii):
-        get_forests_filename_ctr_ascii(filename, 4*MAX_STRING_LEN, run_params);
-        break;
-    default:
-        fprintf(stderr,"Error: Unknown TreeType\n");
-        ABORT(INVALID_OPTION_IN_PARAMS);
-    }
-
-    int fd = open(filename, O_RDONLY);
-    if(fd < 0) {
-        fprintf(stderr,"Error: Could not open filename `%s'\n", filename);
-        perror(NULL);
-        ABORT(FILE_NOT_FOUND);
-    }
-
-    return fd;
-}
-
 
 int setup_forests_io(struct params *run_params, struct forest_info *forests_info,
                      const int ThisTask, const int NTasks)
@@ -96,6 +63,9 @@ int setup_forests_io(struct params *run_params, struct forest_info *forests_info
             return INVALID_OPTION_IN_PARAMS;
         }
 
+    if(status != EXIT_SUCCESS) {
+        return status;
+    }
 
     /*MS: Check that the mechanism to generate unique GalaxyID's was
       initialised correctly in the setup */
@@ -104,13 +74,13 @@ int setup_forests_io(struct params *run_params, struct forest_info *forests_info
                 "galaxyID's were not setup correctly.\n"
                 "FileNr_Mulfac = %"PRId64" and ForestNr_Mulfac = %"PRId64" should both be >=0\n",
                 run_params->FileNr_Mulfac, run_params->ForestNr_Mulfac);
-        return -1;
+        return EXIT_FAILURE;
     }
 
     if(forests_info->frac_volume_processed <= 0.0) {
         fprintf(stderr,"Error: The fraction of the entire simulation volume processed should be > 0.0. Instead, found %g\n",
                 forests_info->frac_volume_processed);
-        return -1;
+        return EXIT_FAILURE;
     }
        
     

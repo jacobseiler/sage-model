@@ -56,11 +56,9 @@ int setup_forests_io_lht_hdf5(struct forest_info *forests_info, const int firstf
         char filename[4*MAX_STRING_LEN];
         get_forests_filename_lht_hdf5(filename, 4*MAX_STRING_LEN, filenr, run_params);
         hid_t fd = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
-        if(fd < 0) {
-            fprintf(stderr, "Error: can't open file `%s'\n", filename);
-            perror(NULL);
-            ABORT(FILE_NOT_FOUND);
-        }
+        XRETURN (fd > 0, FILE_NOT_FOUND,
+                 "Error: can't open file `%s'\n", filename);
+        
         int status = fill_metadata_names(&metadata_names, run_params->TreeType);
         if (status != EXIT_SUCCESS) {
             return -1;
@@ -200,14 +198,14 @@ int setup_forests_io_lht_hdf5(struct forest_info *forests_info, const int firstf
     nforests_so_far = 0;
     /* int *forestnhalos = lht->nhalos_per_forest; */
     for(int filenr=start_filenum;filenr<=end_filenum;filenr++) {
-        XASSERT(start_forestnum_to_process_per_file[filenr] >= 0 && start_forestnum_to_process_per_file[filenr] < totnforests_per_file[filenr],
+        XRETURN(start_forestnum_to_process_per_file[filenr] >= 0 && start_forestnum_to_process_per_file[filenr] < totnforests_per_file[filenr],
                 EXIT_FAILURE,
                 "Error: Num forests to process = %"PRId64" for filenr = %d should be in range [0, %d)\n",
                 start_forestnum_to_process_per_file[filenr],
                 filenr,
                 totnforests_per_file[filenr]);
 
-        XASSERT(num_forests_to_process_per_file[filenr] >= 0 && num_forests_to_process_per_file[filenr] <= totnforests_per_file[filenr],
+        XRETURN(num_forests_to_process_per_file[filenr] >= 0 && num_forests_to_process_per_file[filenr] <= totnforests_per_file[filenr],
                 EXIT_FAILURE,
                 "Error: Num forests to process = %"PRId64" for filenr = %d should be in range [0, %d)\n",
                 num_forests_to_process_per_file[filenr],
@@ -218,11 +216,8 @@ int setup_forests_io_lht_hdf5(struct forest_info *forests_info, const int firstf
         char filename[4*MAX_STRING_LEN];
         get_forests_filename_lht_hdf5(filename, 4*MAX_STRING_LEN, filenr, run_params);
         hid_t fd = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
-        if(fd < 0) {
-            fprintf(stderr, "Error: can't open file `%s'\n", filename);
-            perror(NULL);
-            ABORT(FILE_NOT_FOUND);
-        }
+        XRETURN( fd > 0, FILE_NOT_FOUND,"Error: can't open file `%s'\n", filename);
+
         lht->open_h5_fds[file_index] = fd;/* keep the file open, will be closed at the cleanup stage */
 
         const int64_t nforests = num_forests_to_process_per_file[filenr];
@@ -271,12 +266,12 @@ int setup_forests_io_lht_hdf5(struct forest_info *forests_info, const int firstf
 
 /* MS: 17/9/2019 Assumes a properly allocated variable, with size at least 'nhalos*8' called 'buffer'
    Also assumes a properly allocated variable, 'local_halos' of size 'nhalos' */
-#define READ_TREE_PROPERTY(fd, treenr, sage_name, hdf5_name, C_dtype)  \
+#define READ_TREE_PROPERTY(fd, treenr, sage_name, hdf5_name, C_dtype)   \
     {                                                                   \
         snprintf(dataset_name, MAX_STRING_LEN - 1, "Tree%"PRId64"/%s", treenr, #hdf5_name); \
         int status = read_dataset(fd, dataset_name, buffer);            \
         if (status != EXIT_SUCCESS) {                                   \
-            ABORT(status);                                              \
+            return -1;                                                  \
         }                                                               \
         for (int halo_idx = 0; halo_idx < nhalos; ++halo_idx) {         \
             local_halos[halo_idx].sage_name = ((C_dtype*)buffer)[halo_idx]; \
@@ -291,7 +286,7 @@ int setup_forests_io_lht_hdf5(struct forest_info *forests_info, const int firstf
         snprintf(dataset_name, MAX_STRING_LEN - 1, "Tree%"PRId64"/%s", treenr, #hdf5_name); \
         int status = read_dataset(fd, dataset_name, buffer);            \
         if (status != EXIT_SUCCESS) {                                   \
-            ABORT(status);                                              \
+            return -1;                                                  \
         }                                                               \
         for (int halo_idx = 0; halo_idx < nhalos; ++halo_idx) {         \
             for (int dim = 0; dim < NDIM; ++dim) {                      \
@@ -313,7 +308,7 @@ int64_t load_forest_hdf5(const int64_t forestnr, struct halo_data **halos, struc
     if(fd <= 0 ) {
         fprintf(stderr,"Error: File pointer is NULL (i.e., you need to open the file before reading).\n"
                 "This error should already have been caught before reaching this line\n");
-        ABORT(INVALID_FILE_POINTER);
+        return -INVALID_FILE_POINTER;
     }
 
     const int64_t treenum_in_file = forests_info->original_treenr[forestnr];
@@ -327,7 +322,7 @@ int64_t load_forest_hdf5(const int64_t forestnr, struct halo_data **halos, struc
     hid_t dataset = H5Dopen(fd, dataset_name, H5P_DEFAULT);
     hid_t dspace = H5Dget_space(dataset);
     const int ndims = H5Sget_simple_extent_ndims(dspace);
-    XASSERT(ndims == 1, -1,
+    XRETURN(ndims == 1, -INVALID_VALUE_READ_FROM_FILE,
             "Error: For tree = %"PRId64", expected field = '%s' to be 1-D array. Got ndims = %d\n",
             treenum_in_file, field_name, ndims);
     hsize_t dims[ndims];
@@ -340,11 +335,9 @@ int64_t load_forest_hdf5(const int64_t forestnr, struct halo_data **halos, struc
     struct halo_data *local_halos = *halos;
 
     buffer = malloc(nhalos * NDIM * sizeof(double)); // The largest data-type will be double.
-    if (buffer == NULL) {
-        fprintf(stderr, "Error: Could not allocate memory for %"PRId64" halos in the HDF5 buffer. Size requested = %"PRIu64" bytes\n",
-                nhalos, nhalos * NDIM * sizeof(double)); 
-        ABORT(MALLOC_FAILURE);
-    }
+    XRETURN(buffer != NULL, -MALLOC_FAILURE,
+            "Error: Could not allocate memory for %"PRId64" halos in the HDF5 buffer. Size requested = %"PRIu64" bytes\n",
+            nhalos, nhalos * NDIM * sizeof(double)); 
 
     // We now need to read in all the halo fields for this forest.
     // To do so, we read the field into a buffer and then properly slot the field into the Halo struct.
@@ -514,19 +507,34 @@ static int32_t read_dataset(hid_t fd, const char *dataset_name, void *buffer)
     if (dataset_id < 0) {
         fprintf(stderr, "Error encountered when trying to open up dataset '%s'\n", dataset_name);
         H5Eprint(dataset_id, stderr);
-        ABORT(FILE_READ_ERROR);
+        return dataset_id;
     }
     const hid_t h5_dtype = H5Dget_type(dataset_id);
     if(h5_dtype < 0) {                                                  
         fprintf(stderr,"Error getting datatype for dataset = '%s'\n", dataset_name);
         H5Eprint(dataset_id, stderr);
-        return -1;                                                      
+        return h5_dtype;
     }
 
-   
-    H5Dread(dataset_id, h5_dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer);
-    H5Tclose(h5_dtype);                                            
-    H5Dclose(dataset_id);
+    herr_t status = H5Dread(dataset_id, h5_dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer);
+    if(status < 0) {
+        fprintf(stderr,"Error while reading dataset = '%s'\n", dataset_name);
+        H5Eprint(dataset_id, stderr);
+        return status;
+    }
+    status = H5Tclose(h5_dtype);
+    if(status < 0) {
+        fprintf(stderr,"Error while closing datatype for dataset = '%s'\n", dataset_name);
+        H5Eprint(dataset_id, stderr);
+        return status;
+    }
 
+    status = H5Dclose(dataset_id);
+    if(status < 0) {
+        fprintf(stderr,"Error while closing the dataset = '%s'\n", dataset_name);
+        H5Eprint(dataset_id, stderr);
+        return status;
+    }
+    
     return EXIT_SUCCESS;
 }
